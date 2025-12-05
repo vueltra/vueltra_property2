@@ -1,0 +1,100 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"time"
+	"vueltra-backend/model"
+	"vueltra-backend/repository"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Service struct {
+	Repo *repository.Repository
+}
+
+func NewService(repo *repository.Repository) *Service {
+	return &Service{Repo: repo}
+}
+
+// User Logic
+func (s *Service) Register(username, email, password, phone string) (*model.User, error) {
+	existing, _ := s.Repo.GetUserByEmail(email)
+	if existing != nil {
+		return nil, errors.New("email already registered")
+	}
+
+	user := &model.User{
+		Username:           username,
+		Email:              email,
+		PhoneNumber:        phone,
+		VerificationStatus: "UNVERIFIED",
+		Credits:            0,
+	}
+
+	err := s.Repo.CreateUser(user, password)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *Service) Login(email, password string) (*model.User, error) {
+	user, err := s.Repo.GetUserByEmail(email)
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+	// Refresh detailed data (wishlist etc)
+	fullUser, _ := s.Repo.GetUserByID(user.ID)
+	return fullUser, nil
+}
+
+// AWS S3 Upload Logic
+func (s *Service) UploadToS3(file multipart.File, header *multipart.FileHeader) (string, error) {
+	ctx := context.TODO()
+	// Load AWS Config from Env (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(os.Getenv("AWS_REGION")))
+	if err != nil {
+		return "", fmt.Errorf("unable to load SDK config, %v", err)
+	}
+
+	client := s3.NewFromConfig(cfg)
+	bucketName := os.Getenv("AWS_BUCKET_NAME")
+
+	if bucketName == "" {
+		return "", errors.New("AWS_BUCKET_NAME env is not set")
+	}
+
+	// Generate unique filename to prevent overwrite
+	ext := filepath.Ext(header.Filename)
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	key := fmt.Sprintf("uploads/%s", filename)
+
+	_, err = client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(bucketName),
+		Key:         aws.String(key),
+		Body:        file,
+		ContentType: aws.String(header.Header.Get("Content-Type")),
+		// ACL is often handled by Bucket Policy, but can be added if needed:
+		// ACL: types.ObjectCannedACLPublicRead, 
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3, %v", err)
+	}
+
+	// Return Standard S3 URL
+	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", bucketName, os.Getenv("AWS_REGION"), key)
+	return url, nil
+}

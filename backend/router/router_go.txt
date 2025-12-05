@@ -1,0 +1,437 @@
+package router
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"time"
+	"vueltra-backend/model"
+	"vueltra-backend/service"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/golang-jwt/jwt/v5"
+)
+
+var jwtKey = []byte("SECRET_KEY_VUELTRA") // In prod use ENV
+
+type Router struct {
+	Svc *service.Service
+}
+
+func NewRouter(svc *service.Service) *chi.Mux {
+	r := chi.NewRouter()
+	h := &Router{Svc: svc}
+
+	// Middleware
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"}, 
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	r.Route("/api/v1", func(r chi.Router) {
+		// --- AUTH ---
+		r.Post("/auth/register", h.Register)
+		r.Post("/auth/login", h.Login)
+		r.With(AuthMiddleware).Get("/auth/me", h.Me)
+
+        // --- USERS ---
+        r.With(AuthMiddleware).Get("/users", h.GetUsers) // Admin list
+        r.With(AuthMiddleware).Put("/users/me", h.UpdateProfile)
+        r.With(AuthMiddleware).Put("/admin/users/{id}", h.AdminUpdateUser)
+        r.Get("/users/{id}/public", h.GetPublicProfile)
+        
+        // --- VERIFICATION ---
+        r.With(AuthMiddleware).Post("/verification/submit", h.SubmitVerification)
+        r.With(AuthMiddleware).Post("/admin/verify", h.AdminVerifyUser)
+
+        // --- CREDITS & TRANSACTIONS ---
+        r.With(AuthMiddleware).Post("/admin/credits", h.ManageCredits)
+        r.With(AuthMiddleware).Get("/transactions", h.GetTransactions)
+
+		// --- LISTINGS ---
+		r.Get("/listings", h.GetListings)
+		r.With(AuthMiddleware).Post("/listings", h.CreateListing)
+        r.With(AuthMiddleware).Put("/listings/{id}", h.UpdateListing) 
+        r.With(AuthMiddleware).Patch("/listings/{id}/status", h.UpdateListingStatus)
+		r.With(AuthMiddleware).Delete("/listings/{id}", h.DeleteListing)
+        r.With(AuthMiddleware).Post("/listings/{id}/pin", h.PinListing)
+        r.With(AuthMiddleware).Post("/listings/{id}/wishlist", h.ToggleWishlist)
+
+        // --- REQUESTS ---
+        r.Get("/requests", h.GetRequests)
+        r.With(AuthMiddleware).Post("/requests", h.CreateRequest)
+        r.With(AuthMiddleware).Delete("/requests/{id}", h.DeleteRequest)
+
+        // --- BLOG ---
+        r.Get("/posts", h.GetBlogPosts)
+        r.Get("/posts/{id}", h.GetBlogPost)
+        r.With(AuthMiddleware).Post("/posts", h.CreateBlogPost)
+        r.With(AuthMiddleware).Put("/posts/{id}", h.UpdateBlogPost)
+        r.With(AuthMiddleware).Delete("/posts/{id}", h.DeleteBlogPost)
+
+        // --- REPORTS ---
+        r.With(AuthMiddleware).Get("/reports", h.GetReports) // Admin view
+        r.With(AuthMiddleware).Post("/reports", h.CreateReport)
+        r.With(AuthMiddleware).Delete("/reports/{id}", h.DeleteReport)
+
+        // --- SETTINGS ---
+        r.Get("/admin/settings", h.GetSettings)
+        r.With(AuthMiddleware).Put("/admin/settings", h.UpdateSettings)
+
+        // --- UPLOAD (AWS S3) ---
+        r.With(AuthMiddleware).Post("/upload", h.Upload) 
+	})
+
+	return r
+}
+
+// -- HANDLERS --
+
+// AUTH
+func (h *Router) Register(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Phone    string `json:"phoneNumber"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	user, err := h.Svc.Register(req.Username, req.Email, req.Password, req.Phone)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+    token, _ := generateToken(user.ID)
+	json.NewEncoder(w).Encode(map[string]interface{}{"token": token, "user": user})
+}
+
+func (h *Router) Login(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	user, err := h.Svc.Login(req.Email, req.Password)
+	if err != nil {
+		http.Error(w, err.Error(), 401)
+		return
+	}
+	token, _ := generateToken(user.ID)
+	json.NewEncoder(w).Encode(map[string]interface{}{"token": token, "user": user})
+}
+
+func (h *Router) Me(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    user, _ := h.Svc.Repo.GetUserByID(userID)
+    json.NewEncoder(w).Encode(map[string]interface{}{"user": user})
+}
+
+// USERS
+func (h *Router) GetUsers(w http.ResponseWriter, r *http.Request) {
+    users, _ := h.Svc.Repo.GetAllUsers()
+    json.NewEncoder(w).Encode(users)
+}
+
+func (h *Router) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    agent, err := h.Svc.Repo.GetUserByID(id)
+    if err != nil { http.Error(w, "User not found", 404); return }
+    listings, _ := h.Svc.Repo.GetAgentListings(id)
+    json.NewEncoder(w).Encode(map[string]interface{}{"agent": agent, "listings": listings})
+}
+
+func (h *Router) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    var u model.User
+    json.NewDecoder(r.Body).Decode(&u)
+    u.ID = userID
+    h.Svc.Repo.UpdateUser(&u)
+    updated, _ := h.Svc.Repo.GetUserByID(userID)
+    json.NewEncoder(w).Encode(map[string]interface{}{"user": updated})
+}
+
+func (h *Router) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    var u model.User
+    json.NewDecoder(r.Body).Decode(&u)
+    u.ID = id
+    h.Svc.Repo.UpdateUser(&u)
+    updated, _ := h.Svc.Repo.GetUserByID(id)
+    json.NewEncoder(w).Encode(map[string]interface{}{"user": updated})
+}
+
+// VERIFICATION
+func (h *Router) SubmitVerification(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    var req struct { Ktp string `json:"ktpUrl"`; Selfie string `json:"selfieUrl"`; Card string `json:"agentCardUrl"` }
+    json.NewDecoder(r.Body).Decode(&req)
+    h.Svc.Repo.SubmitVerification(userID, req.Ktp, req.Selfie, req.Card)
+    json.NewEncoder(w).Encode(map[string]string{"status": "PENDING"})
+}
+
+func (h *Router) AdminVerifyUser(w http.ResponseWriter, r *http.Request) {
+    var req struct { UserID string `json:"userId"`; Status string `json:"status"` }
+    json.NewDecoder(r.Body).Decode(&req)
+    h.Svc.Repo.AdminUpdateVerify(req.UserID, req.Status)
+    w.WriteHeader(200)
+}
+
+// CREDITS
+func (h *Router) ManageCredits(w http.ResponseWriter, r *http.Request) {
+    var req struct { UserID string `json:"userId"`; Amount int64 `json:"amount"`; Type string `json:"type"` }
+    json.NewDecoder(r.Body).Decode(&req)
+    h.Svc.Repo.UpdateCredits(req.UserID, req.Amount, req.Type, "Admin Adjustment")
+    json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *Router) GetTransactions(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    trx, _ := h.Svc.Repo.GetTransactions(userID)
+    json.NewEncoder(w).Encode(trx)
+}
+
+// LISTINGS
+func (h *Router) GetListings(w http.ResponseWriter, r *http.Request) {
+    // Parse Query Params
+    cat := r.URL.Query().Get("category")
+    loc := r.URL.Query().Get("location")
+    typ := r.URL.Query().Get("type")
+
+    listings, _ := h.Svc.Repo.GetAllListings(cat, loc, typ)
+    json.NewEncoder(w).Encode(listings)
+}
+
+func (h *Router) CreateListing(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    var l model.Listing
+    json.NewDecoder(r.Body).Decode(&l)
+    
+    // Check if Admin posting as other user
+    var reqAs struct { AsUserId string `json:"asUserId"` }
+    // Note: In real production, we'd need to verify isAdmin for this. 
+    
+    if l.SellerID == "" { l.SellerID = userID }
+    
+    err := h.Svc.Repo.CreateListing(&l)
+    if err != nil {
+        http.Error(w, err.Error(), 500)
+        return
+    }
+
+    // Populate SellerName for Frontend to display immediately
+    seller, _ := h.Svc.Repo.GetUserByID(l.SellerID)
+    if seller != nil {
+        l.SellerName = seller.Username
+    }
+
+    json.NewEncoder(w).Encode(l)
+}
+
+func (h *Router) UpdateListing(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    var l model.Listing
+    json.NewDecoder(r.Body).Decode(&l)
+    l.ID = id
+    h.Svc.Repo.UpdateListing(&l)
+    
+    // Re-fetch to return complete object if needed, or just return struct
+    json.NewEncoder(w).Encode(l)
+}
+
+func (h *Router) UpdateListingStatus(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    var req struct { Status string `json:"status"` }
+    json.NewDecoder(r.Body).Decode(&req)
+    h.Svc.Repo.UpdateListingStatus(id, req.Status)
+    w.WriteHeader(200)
+}
+
+func (h *Router) DeleteListing(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    h.Svc.Repo.DeleteListing(id)
+    w.WriteHeader(200)
+}
+
+func (h *Router) PinListing(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    var req struct { Cost int64 `json:"cost"` }
+    json.NewDecoder(r.Body).Decode(&req)
+    userID := r.Context().Value("userID").(string)
+    
+    err := h.Svc.Repo.UpdateCredits(userID, req.Cost, "SPEND", "Pin Listing")
+    if err != nil { http.Error(w, err.Error(), 400); return }
+    
+    h.Svc.Repo.PinListing(id, time.Now().Add(24*time.Hour).UnixMilli())
+    json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (h *Router) ToggleWishlist(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    userID := r.Context().Value("userID").(string)
+    isWishlisted, _ := h.Svc.Repo.ToggleWishlist(userID, id)
+    json.NewEncoder(w).Encode(map[string]bool{"isWishlisted": isWishlisted})
+}
+
+// REQUESTS
+func (h *Router) GetRequests(w http.ResponseWriter, r *http.Request) {
+    reqs, _ := h.Svc.Repo.GetRequests()
+    json.NewEncoder(w).Encode(reqs)
+}
+
+func (h *Router) CreateRequest(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    var req model.PropertyRequest
+    json.NewDecoder(r.Body).Decode(&req)
+    req.UserID = userID
+    h.Svc.Repo.CreateRequest(&req)
+    
+    // Populate User Details for response
+    u, _ := h.Svc.Repo.GetUserByID(userID)
+    if u != nil {
+        req.UserName = u.Username
+        req.UserPhone = u.PhoneNumber
+    }
+
+    json.NewEncoder(w).Encode(req)
+}
+
+func (h *Router) DeleteRequest(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    h.Svc.Repo.DeleteRequest(id)
+    w.WriteHeader(200)
+}
+
+// BLOG
+func (h *Router) GetBlogPosts(w http.ResponseWriter, r *http.Request) {
+    posts, _ := h.Svc.Repo.GetBlogPosts()
+    json.NewEncoder(w).Encode(posts)
+}
+
+func (h *Router) GetBlogPost(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    p, _ := h.Svc.Repo.GetBlogPost(id)
+    json.NewEncoder(w).Encode(p)
+}
+
+func (h *Router) CreateBlogPost(w http.ResponseWriter, r *http.Request) {
+    var p model.BlogPost
+    json.NewDecoder(r.Body).Decode(&p)
+    h.Svc.Repo.CreateBlogPost(&p)
+    json.NewEncoder(w).Encode(p)
+}
+
+func (h *Router) UpdateBlogPost(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    var p model.BlogPost
+    json.NewDecoder(r.Body).Decode(&p)
+    p.ID = id
+    h.Svc.Repo.UpdateBlogPost(&p)
+    json.NewEncoder(w).Encode(p)
+}
+
+func (h *Router) DeleteBlogPost(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    h.Svc.Repo.DeleteBlogPost(id)
+    w.WriteHeader(200)
+}
+
+// REPORTS
+func (h *Router) GetReports(w http.ResponseWriter, r *http.Request) {
+    reports, _ := h.Svc.Repo.GetReports()
+    json.NewEncoder(w).Encode(reports)
+}
+
+func (h *Router) CreateReport(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("userID").(string)
+    var rpt model.ListingReport
+    json.NewDecoder(r.Body).Decode(&rpt)
+    rpt.ReporterID = userID
+    h.Svc.Repo.CreateReport(&rpt)
+    json.NewEncoder(w).Encode(rpt)
+}
+
+func (h *Router) DeleteReport(w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    h.Svc.Repo.DeleteReport(id)
+    w.WriteHeader(200)
+}
+
+// SETTINGS
+func (h *Router) GetSettings(w http.ResponseWriter, r *http.Request) {
+    s, _ := h.Svc.Repo.GetSettings()
+    json.NewEncoder(w).Encode(s)
+}
+
+func (h *Router) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+    var s model.AppSettings
+    json.NewDecoder(r.Body).Decode(&s)
+    h.Svc.Repo.UpdateSettings(&s)
+    json.NewEncoder(w).Encode(s)
+}
+
+// UPLOAD (Multipart -> S3)
+func (h *Router) Upload(w http.ResponseWriter, r *http.Request) {
+    // 1. Parse Multipart Form
+    // Max 10MB
+    r.ParseMultipartForm(10 << 20)
+
+    file, header, err := r.FormFile("file")
+    if err != nil {
+        http.Error(w, "Invalid file", 400)
+        return
+    }
+    defer file.Close()
+
+    // 2. Upload to S3 via Service
+    url, err := h.Svc.UploadToS3(file, header)
+    if err != nil {
+        http.Error(w, "Failed to upload: "+err.Error(), 500)
+        return
+    }
+
+    // 3. Return URL
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]string{
+        "url": url,
+    })
+}
+
+// -- UTILS --
+
+func generateToken(userID string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	})
+	return token.SignedString(jwtKey)
+}
+
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Unauthorized", 401)
+			return
+		}
+		// Bearer token
+		tokenStr := authHeader[len("Bearer "):]
+		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			ctx := context.WithValue(r.Context(), "userID", claims["user_id"])
+			next.ServeHTTP(w, r.WithContext(ctx))
+		} else {
+			http.Error(w, "Unauthorized: "+err.Error(), 401)
+		}
+	})
+}

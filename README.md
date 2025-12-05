@@ -1,11 +1,59 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# Vueltra - Property Marketplace
 
-  <h1>Built with AI Studio</h2>
+Ini adalah panduan konfigurasi cepat untuk pengembang.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## ⚙️ Versi Aplikasi & Konfigurasi
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+Anda dapat beralih antara dua versi mode aplikasi melalui file **`services/store.ts`**.
 
-</div>
+### 🛠️ Versi 1: Mock Mode (Tanpa Backend)
+Ini adalah **Default**. Cocok untuk demo frontend, testing UI, atau pengembangan tanpa server.
+*   **Data**: Tersimpan di `localStorage` browser.
+*   **Fitur**: Semua fitur berjalan simulasi (Upload foto simulasi, login simulasi).
+*   **Cara Aktifkan**: 
+    Set `USE_REAL_BACKEND: false` di `APP_CONFIG`.
+
+### 🔗 Versi 2: Real Backend (Integrasi API)
+Gunakan mode ini saat ingin menghubungkan aplikasi dengan server database (Golang/Node.js).
+*   **Data**: Diambil langsung dari Server via API.
+*   **Fitur**: Upload foto, Auth, dan CRUD listing bersifat Real-time dan persisten di database.
+*   **Cara Aktifkan**: 
+    Set `USE_REAL_BACKEND: true` di `APP_CONFIG`.
+
+---
+
+## 🔧 Pengaturan Fitur (Feature Flags)
+
+Beberapa fitur dapat dinonaktifkan secara default melalui `services/store.ts` pada bagian `DEFAULT_SETTINGS`.
+
+*   **Market Insight**: Set `showMarketInsights: false` untuk menyembunyikan widget data wilayah di halaman Home secara default. Admin dapat menyalakannya kembali lewat Dashboard.
+
+---
+
+## 🚀 Integrasi Backend
+
+Jika menggunakan Versi 2, pastikan `BASE_URL` mengarah ke server Anda.
+
+```typescript
+export const API_CONFIG = {
+  BASE_URL: 'http://localhost:8080/api/v1', 
+  // ...
+};
+```
+
+Spesifikasi Endpoint API lengkap dapat dilihat di file: **`API_CONTRACT.md`**.
+
+---
+
+## ⚡ Menjalankan Aplikasi
+
+Pastikan Anda telah menginstall dependencies:
+```bash
+npm install
+```
+
+Jalankan server development:
+```bash
+npm start
+```

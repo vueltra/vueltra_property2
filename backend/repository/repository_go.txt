@@ -1,0 +1,366 @@
+
+package repository
+
+import (
+	"fmt"
+	"time"
+	"vueltra-backend/model"
+    "strings"
+
+	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Repository struct {
+	DB *sqlx.DB
+}
+
+func NewRepository(db *sqlx.DB) *Repository {
+	return &Repository{DB: db}
+}
+
+// --- USER & AUTH ---
+
+func (r *Repository) CreateUser(u *model.User, password string) error {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.PasswordHash = string(hashed)
+	u.JoinedAt = time.Now().UnixMilli()
+    u.Credits = 0 
+
+	query := `INSERT INTO users (username, email, password_hash, phone_number, credits, verification_status, joined_at) 
+              VALUES (:username, :email, :password_hash, :phone_number, :credits, :verification_status, :joined_at) RETURNING id`
+	
+	rows, err := r.DB.NamedQuery(query, u)
+	if err != nil {
+		return err
+	}
+	if rows.Next() {
+		rows.Scan(&u.ID)
+	}
+	rows.Close()
+	return nil
+}
+
+func (r *Repository) GetUserByEmail(email string) (*model.User, error) {
+	u := model.User{}
+	err := r.DB.Get(&u, "SELECT * FROM users WHERE email=$1", email)
+	if err != nil { return nil, err }
+	return &u, nil
+}
+
+func (r *Repository) GetUserByID(id string) (*model.User, error) {
+	u := model.User{}
+	err := r.DB.Get(&u, "SELECT * FROM users WHERE id=$1", id)
+	if err != nil { return nil, err }
+    
+    var wishlist []string
+    r.DB.Select(&wishlist, "SELECT listing_id FROM wishlist WHERE user_id=$1", id)
+    u.Wishlist = wishlist
+    
+	return &u, nil
+}
+
+func (r *Repository) GetAllUsers() ([]model.User, error) {
+    users := []model.User{}
+    err := r.DB.Select(&users, "SELECT * FROM users ORDER BY joined_at DESC")
+    return users, err
+}
+
+func (r *Repository) UpdateUser(u *model.User) error {
+    query := `UPDATE users SET username=:username, phone_number=:phone_number, photo_url=:photo_url WHERE id=:id`
+    _, err := r.DB.NamedExec(query, u)
+    return err
+}
+
+func (r *Repository) AdminUpdateVerify(userID string, status string) error {
+    _, err := r.DB.Exec("UPDATE users SET verification_status=$1 WHERE id=$2", status, userID)
+    return err
+}
+
+func (r *Repository) SubmitVerification(userID, ktp, selfie, card string) error {
+    _, err := r.DB.Exec(`UPDATE users SET verification_status='PENDING', ktp_url=$1, selfie_url=$2, agent_card_url=$3 WHERE id=$4`, 
+        ktp, selfie, card, userID)
+    return err
+}
+
+func (r *Repository) ResetPasswordMock(email string) error {
+    var id string
+    return r.DB.Get(&id, "SELECT id FROM users WHERE email=$1", email)
+}
+
+// --- TRANSACTIONS & CREDITS ---
+
+func (r *Repository) UpdateCredits(userID string, amount int64, typeStr string, description string) error {
+    tx, err := r.DB.Beginx()
+    if err != nil { return err }
+
+    var query string
+    if typeStr == "TOPUP" || typeStr == "ADD" {
+        query = "UPDATE users SET credits = credits + $1 WHERE id = $2"
+        typeStr = "TOPUP"
+    } else {
+        query = "UPDATE users SET credits = credits - $1 WHERE id = $2"
+        typeStr = "SPEND"
+    }
+    
+    if typeStr == "SPEND" {
+        var currentCredits int64
+        err = tx.Get(&currentCredits, "SELECT credits FROM users WHERE id=$1", userID)
+        if err != nil { tx.Rollback(); return err }
+        if currentCredits < amount {
+            tx.Rollback()
+            return fmt.Errorf("insufficient funds")
+        }
+    }
+
+    _, err = tx.Exec(query, amount, userID)
+    if err != nil { tx.Rollback(); return err }
+
+    _, err = tx.Exec("INSERT INTO transactions (user_id, type, amount, description, created_at) VALUES ($1, $2, $3, $4, $5)",
+        userID, typeStr, amount, description, time.Now().UnixMilli())
+    if err != nil { tx.Rollback(); return err }
+
+    return tx.Commit()
+}
+
+func (r *Repository) GetTransactions(userID string) ([]model.Transaction, error) {
+    trx := []model.Transaction{}
+    err := r.DB.Select(&trx, "SELECT * FROM transactions WHERE user_id=$1 ORDER BY created_at DESC", userID)
+    return trx, err
+}
+
+func (r *Repository) GetAllTransactions() ([]model.Transaction, error) {
+    trx := []model.Transaction{}
+    err := r.DB.Select(&trx, "SELECT * FROM transactions ORDER BY created_at DESC")
+    return trx, err
+}
+
+// --- LISTINGS ---
+
+func (r *Repository) CreateListing(l *model.Listing) error {
+	l.CreatedAt = time.Now().UnixMilli()
+    if l.Status == "" { l.Status = "ACTIVE" }
+	query := `INSERT INTO listings (seller_id, title, description, price, category, type, status, location, address, image_url, surface_area, building_area, bedrooms, bathrooms, certificate, whatsapp, created_at, is_example)
+	          VALUES (:seller_id, :title, :description, :price, :category, :type, :status, :location, :address, :image_url, :surface_area, :building_area, :bedrooms, :bathrooms, :certificate, :whatsapp, :created_at, :is_example) RETURNING id`
+	rows, err := r.DB.NamedQuery(query, l)
+	if err != nil { return err }
+	if rows.Next() { rows.Scan(&l.ID) }
+	rows.Close()
+	return nil
+}
+
+func (r *Repository) UpdateListing(l *model.Listing) error {
+    query := `UPDATE listings SET title=:title, description=:description, price=:price, category=:category, 
+              type=:type, location=:location, address=:address, image_url=:image_url, 
+              surface_area=:surface_area, building_area=:building_area, bedrooms=:bedrooms, bathrooms=:bathrooms, 
+              certificate=:certificate, whatsapp=:whatsapp, is_example=:is_example 
+              WHERE id=:id`
+    _, err := r.DB.NamedExec(query, l)
+    return err
+}
+
+func (r *Repository) GetAllListings(category, location, listingType string) ([]model.Listing, error) {
+	listings := []model.Listing{}
+	
+    // Base Query
+    query := `SELECT l.*, u.username as seller_name FROM listings l JOIN users u ON l.seller_id = u.id`
+    
+    // Dynamic Filter Construction
+    var args []interface{}
+    var filters []string
+    argIdx := 1
+
+    if category != "" && category != "ALL" {
+        filters = append(filters, fmt.Sprintf("l.category = $%d", argIdx))
+        args = append(args, category)
+        argIdx++
+    }
+    if location != "" && location != "ALL" {
+        // Simple partial match for location or exact match
+        filters = append(filters, fmt.Sprintf("(l.location = $%d OR l.location ILIKE $%d)", argIdx, argIdx+1))
+        args = append(args, location, "%"+location+"%")
+        argIdx+=2
+    }
+    if listingType != "" && listingType != "ALL" {
+        filters = append(filters, fmt.Sprintf("l.type = $%d", argIdx))
+        args = append(args, listingType)
+        argIdx++
+    }
+
+    if len(filters) > 0 {
+        query += " WHERE " + strings.Join(filters, " AND ")
+    }
+
+    query += ` ORDER BY l.is_pinned DESC, l.created_at DESC`
+
+	err := r.DB.Select(&listings, query, args...)
+	if err != nil { return nil, err }
+
+    // Fallback population just in case join fails (shouldn't with inner join)
+    for i := range listings {
+        if listings[i].SellerName == "" {
+             u, _ := r.GetUserByID(listings[i].SellerID)
+             if u != nil { listings[i].SellerName = u.Username }
+        }
+    }
+	return listings, nil
+}
+
+func (r *Repository) GetAgentListings(agentID string) ([]model.Listing, error) {
+    listings := []model.Listing{}
+    err := r.DB.Select(&listings, "SELECT * FROM listings WHERE seller_id=$1 ORDER BY created_at DESC", agentID)
+    u, _ := r.GetUserByID(agentID)
+    name := "Unknown"
+    if u != nil { name = u.Username }
+    for i := range listings { listings[i].SellerName = name }
+    return listings, err
+}
+
+func (r *Repository) UpdateListingStatus(id string, status string) error {
+    _, err := r.DB.Exec("UPDATE listings SET status=$1 WHERE id=$2", status, id)
+    return err
+}
+
+func (r *Repository) DeleteListing(id string) error {
+    _, err := r.DB.Exec("DELETE FROM listings WHERE id=$1", id)
+    return err
+}
+
+func (r *Repository) PinListing(id string, until int64) error {
+    _, err := r.DB.Exec("UPDATE listings SET is_pinned=true, pinned_until=$1 WHERE id=$2", until, id)
+    return err
+}
+
+func (r *Repository) ToggleWishlist(userID, listingID string) (bool, error) {
+    var exists int
+    r.DB.Get(&exists, "SELECT count(*) FROM wishlist WHERE user_id=$1 AND listing_id=$2", userID, listingID)
+    
+    if exists > 0 {
+        _, err := r.DB.Exec("DELETE FROM wishlist WHERE user_id=$1 AND listing_id=$2", userID, listingID)
+        return false, err
+    } else {
+        _, err := r.DB.Exec("INSERT INTO wishlist (user_id, listing_id) VALUES ($1, $2)", userID, listingID)
+        return true, err
+    }
+}
+
+// --- REQUESTS ---
+
+func (r *Repository) GetRequests() ([]model.PropertyRequest, error) {
+    reqs := []model.PropertyRequest{}
+    err := r.DB.Select(&reqs, "SELECT * FROM property_requests ORDER BY created_at DESC")
+    for i := range reqs {
+        u, _ := r.GetUserByID(reqs[i].UserID)
+        if u != nil {
+             reqs[i].UserName = u.Username
+             reqs[i].UserPhone = u.PhoneNumber
+        }
+    }
+    return reqs, err
+}
+
+func (r *Repository) CreateRequest(req *model.PropertyRequest) error {
+    req.CreatedAt = time.Now().UnixMilli()
+    query := `INSERT INTO property_requests (user_id, type, category, location, budget_min, budget_max, description, created_at, is_example)
+              VALUES (:user_id, :type, :category, :location, :budget_min, :budget_max, :description, :created_at, :is_example) RETURNING id`
+    rows, err := r.DB.NamedQuery(query, req)
+    if err != nil { return err }
+    if rows.Next() { rows.Scan(&req.ID) }
+    rows.Close()
+    return nil
+}
+
+func (r *Repository) DeleteRequest(id string) error {
+    _, err := r.DB.Exec("DELETE FROM property_requests WHERE id=$1", id)
+    return err
+}
+
+// --- BLOG ---
+
+func (r *Repository) GetBlogPosts() ([]model.BlogPost, error) {
+    posts := []model.BlogPost{}
+    err := r.DB.Select(&posts, "SELECT * FROM blog_posts ORDER BY created_at DESC")
+    return posts, err
+}
+
+func (r *Repository) GetBlogPost(id string) (*model.BlogPost, error) {
+    p := model.BlogPost{}
+    err := r.DB.Get(&p, "SELECT * FROM blog_posts WHERE id=$1", id)
+    return &p, err
+}
+
+func (r *Repository) CreateBlogPost(p *model.BlogPost) error {
+    p.CreatedAt = time.Now().UnixMilli()
+    query := `INSERT INTO blog_posts (title, slug, excerpt, content, image_url, author, category, created_at)
+              VALUES (:title, :slug, :excerpt, :content, :image_url, :author, :category, :created_at) RETURNING id`
+    rows, err := r.DB.NamedQuery(query, p)
+    if err != nil { return err }
+    if rows.Next() { rows.Scan(&p.ID) }
+    rows.Close()
+    return nil
+}
+
+func (r *Repository) UpdateBlogPost(p *model.BlogPost) error {
+    query := `UPDATE blog_posts SET title=:title, slug=:slug, excerpt=:excerpt, content=:content, 
+              image_url=:image_url, author=:author, category=:category WHERE id=:id`
+    _, err := r.DB.NamedExec(query, p)
+    return err
+}
+
+func (r *Repository) DeleteBlogPost(id string) error {
+    _, err := r.DB.Exec("DELETE FROM blog_posts WHERE id=$1", id)
+    return err
+}
+
+// --- REPORTS ---
+
+func (r *Repository) GetReports() ([]model.ListingReport, error) {
+    reports := []model.ListingReport{}
+    err := r.DB.Select(&reports, "SELECT * FROM listing_reports ORDER BY created_at DESC")
+    
+    // Populate details
+    for i := range reports {
+        // Reporter
+        u, _ := r.GetUserByID(reports[i].ReporterID)
+        if u != nil { reports[i].ReporterName = u.Username }
+        // Listing Title
+        var title string
+        r.DB.Get(&title, "SELECT title FROM listings WHERE id=$1", reports[i].ListingID)
+        reports[i].ListingTitle = title
+    }
+    return reports, err
+}
+
+func (r *Repository) CreateReport(rpt *model.ListingReport) error {
+    rpt.CreatedAt = time.Now().UnixMilli()
+    query := `INSERT INTO listing_reports (listing_id, reporter_id, reason, created_at) VALUES (:listing_id, :reporter_id, :reason, :created_at) RETURNING id`
+    rows, err := r.DB.NamedQuery(query, rpt)
+    if err != nil { return err }
+    if rows.Next() { rows.Scan(&rpt.ID) }
+    rows.Close()
+    return nil
+}
+
+func (r *Repository) DeleteReport(id string) error {
+    _, err := r.DB.Exec("DELETE FROM listing_reports WHERE id=$1", id)
+    return err
+}
+
+// --- SETTINGS ---
+
+func (r *Repository) GetSettings() (*model.AppSettings, error) {
+    s := model.AppSettings{}
+    err := r.DB.Get(&s, "SELECT * FROM app_settings WHERE id=1")
+    return &s, err
+}
+
+func (r *Repository) UpdateSettings(s *model.AppSettings) error {
+    query := `UPDATE app_settings SET show_market_insights=:show_market_insights, contact_email=:contact_email,
+              contact_phone=:contact_phone, contact_working_hours=:contact_working_hours, contact_address=:contact_address
+              WHERE id=1`
+    _, err := r.DB.NamedExec(query, s)
+    return err
+}

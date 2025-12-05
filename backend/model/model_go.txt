@@ -1,0 +1,126 @@
+package model
+
+import (
+	"database/sql/driver"
+	"encoding/json"
+)
+
+// User struct
+type User struct {
+	ID                 string         `db:"id" json:"id"`
+	Username           string         `db:"username" json:"username"`
+	Email              string         `db:"email" json:"email"`
+	PasswordHash       string         `db:"password_hash" json:"-"`
+	PhoneNumber        string         `db:"phone_number" json:"phoneNumber,omitempty"`
+	PhotoURL           string         `db:"photo_url" json:"photoUrl,omitempty"`
+	Credits            int64          `db:"credits" json:"credits"`
+	IsAdmin            bool           `db:"is_admin" json:"isAdmin"`
+	VerificationStatus string         `db:"verification_status" json:"verificationStatus"`
+	KtpURL             string         `db:"ktp_url" json:"ktpUrl,omitempty"`
+	SelfieURL          string         `db:"selfie_url" json:"selfieUrl,omitempty"`
+	AgentCardURL       string         `db:"agent_card_url" json:"agentCardUrl,omitempty"`
+	JoinedAt           int64          `db:"joined_at" json:"joinedAt"`
+	Wishlist           StringArray    `db:"-" json:"wishlist"` // Populated manually
+}
+
+// Listing struct
+type Listing struct {
+	ID           string  `db:"id" json:"id"`
+	SellerID     string  `db:"seller_id" json:"sellerId"`
+	SellerName   string  `db:"-" json:"sellerName"` // Populated via join or separate query
+	Title        string  `db:"title" json:"title"`
+	Description  string  `db:"description" json:"description"`
+	Price        int64   `db:"price" json:"price"`
+	Category     string  `db:"category" json:"category"`
+	Type         string  `db:"type" json:"type"`
+	Status       string  `db:"status" json:"status"`
+	Location     string  `db:"location" json:"location"`
+	Address      string  `db:"address" json:"address,omitempty"`
+	ImageURL     string  `db:"image_url" json:"imageUrl"`
+	YoutubeURL   string  `db:"youtube_url" json:"youtubeUrl,omitempty"`
+	SurfaceArea  int     `db:"surface_area" json:"surfaceArea"`
+	BuildingArea int     `db:"building_area" json:"buildingArea"`
+	Bedrooms     int     `db:"bedrooms" json:"bedrooms"`
+	Bathrooms    int     `db:"bathrooms" json:"bathrooms"`
+	Certificate  string  `db:"certificate" json:"certificate"`
+	IsPinned     bool    `db:"is_pinned" json:"isPinned"`
+	PinnedUntil  int64   `db:"pinned_until" json:"pinnedUntil,omitempty"`
+	Whatsapp     string  `db:"whatsapp" json:"whatsapp"`
+	CreatedAt    int64   `db:"created_at" json:"createdAt"`
+	IsExample    bool    `db:"is_example" json:"isExample"`
+}
+
+// Transaction struct
+type Transaction struct {
+	ID          string `db:"id" json:"id"`
+	UserID      string `db:"user_id" json:"userId"`
+	Type        string `db:"type" json:"type"`
+	Amount      int64  `db:"amount" json:"amount"`
+	Description string `db:"description" json:"description"`
+	CreatedAt   int64  `db:"created_at" json:"date"`
+}
+
+// ListingReport struct
+type ListingReport struct {
+	ID           string `db:"id" json:"id"`
+	ListingID    string `db:"listing_id" json:"listingId"`
+	ListingTitle string `db:"-" json:"listingTitle"` // Populated manually
+	ReporterID   string `db:"reporter_id" json:"reporterId"`
+	ReporterName string `db:"-" json:"reporterName"` // Populated manually
+	Reason       string `db:"reason" json:"reason"`
+	CreatedAt    int64  `db:"created_at" json:"date"`
+}
+
+// BlogPost struct
+type BlogPost struct {
+	ID        string `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+	Slug      string `db:"slug" json:"slug"`
+	Excerpt   string `db:"excerpt" json:"excerpt"`
+	Content   string `db:"content" json:"content"`
+	ImageURL  string `db:"image_url" json:"imageUrl"`
+	Author    string `db:"author" json:"author"`
+	Category  string `db:"category" json:"category"`
+	CreatedAt int64  `db:"created_at" json:"createdAt"`
+}
+
+// PropertyRequest struct
+type PropertyRequest struct {
+	ID          string `db:"id" json:"id"`
+	UserID      string `db:"user_id" json:"userId"`
+	UserName    string `db:"-" json:"userName"`
+	UserPhone   string `db:"-" json:"userPhone"`
+	Type        string `db:"type" json:"type"`
+	Category    string `db:"category" json:"category"`
+	Location    string `db:"location" json:"location"`
+	BudgetMin   int64  `db:"budget_min" json:"budgetMin"`
+	BudgetMax   int64  `db:"budget_max" json:"budgetMax"`
+	Description string `db:"description" json:"description"`
+	CreatedAt   int64  `db:"created_at" json:"createdAt"`
+	IsExample   bool   `db:"is_example" json:"isExample"`
+}
+
+// AppSettings struct
+type AppSettings struct {
+	ShowMarketInsights  bool   `db:"show_market_insights" json:"showMarketInsights"`
+	ContactEmail        string `db:"contact_email" json:"contactEmail"`
+	ContactPhone        string `db:"contact_phone" json:"contactPhone"`
+	ContactWorkingHours string `db:"contact_working_hours" json:"contactWorkingHours"`
+	ContactAddress      string `db:"contact_address" json:"contactAddress"`
+}
+
+// Helpers for JSON/DB handling
+type StringArray []string
+
+func (a *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*a = StringArray{}
+		return nil
+	}
+	// Simplified: In real PG array, need proper parsing or use pq.StringArray
+	return nil
+}
+
+func (a StringArray) Value() (driver.Value, error) {
+	return json.Marshal(a)
+}

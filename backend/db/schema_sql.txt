@@ -1,0 +1,120 @@
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- USERS TABLE
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(50),
+    photo_url TEXT,
+    credits BIGINT DEFAULT 0,
+    is_admin BOOLEAN DEFAULT FALSE,
+    verification_status VARCHAR(20) DEFAULT 'UNVERIFIED', -- UNVERIFIED, PENDING, VERIFIED, REJECTED
+    ktp_url TEXT,
+    selfie_url TEXT,
+    agent_card_url TEXT,
+    joined_at BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- LISTINGS TABLE
+CREATE TABLE IF NOT EXISTS listings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    seller_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    price BIGINT NOT NULL,
+    category VARCHAR(50) NOT NULL, -- Rumah Tapak, Apartemen, etc.
+    type VARCHAR(20) NOT NULL, -- Dijual, Disewa
+    status VARCHAR(20) DEFAULT 'ACTIVE', -- ACTIVE, SOLD
+    location VARCHAR(100) NOT NULL,
+    address TEXT,
+    image_url TEXT,
+    youtube_url TEXT,
+    
+    -- Specs
+    surface_area INT DEFAULT 0,
+    building_area INT DEFAULT 0,
+    bedrooms INT DEFAULT 0,
+    bathrooms INT DEFAULT 0,
+    certificate VARCHAR(50),
+
+    is_pinned BOOLEAN DEFAULT FALSE,
+    pinned_until BIGINT DEFAULT 0,
+    
+    whatsapp VARCHAR(50),
+    created_at BIGINT NOT NULL,
+    is_example BOOLEAN DEFAULT FALSE
+);
+
+-- TRANSACTIONS TABLE
+CREATE TABLE IF NOT EXISTS transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(10) NOT NULL, -- TOPUP, SPEND
+    amount BIGINT NOT NULL,
+    description TEXT,
+    created_at BIGINT NOT NULL
+);
+
+-- LISTING REPORTS TABLE
+CREATE TABLE IF NOT EXISTS listing_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    listing_id UUID REFERENCES listings(id) ON DELETE CASCADE,
+    reporter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+);
+
+-- WISHLIST TABLE (Many-to-Many)
+CREATE TABLE IF NOT EXISTS wishlist (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    listing_id UUID REFERENCES listings(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, listing_id)
+);
+
+-- BLOG POSTS TABLE
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    excerpt TEXT,
+    content TEXT,
+    image_url TEXT,
+    author VARCHAR(100),
+    category VARCHAR(50),
+    created_at BIGINT NOT NULL
+);
+
+-- PROPERTY REQUESTS TABLE
+CREATE TABLE IF NOT EXISTS property_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL, -- JUAL / SEWA
+    category VARCHAR(50),
+    location VARCHAR(100),
+    budget_min BIGINT,
+    budget_max BIGINT,
+    description TEXT,
+    created_at BIGINT NOT NULL,
+    is_example BOOLEAN DEFAULT FALSE
+);
+
+-- APP SETTINGS TABLE (Single Row)
+CREATE TABLE IF NOT EXISTS app_settings (
+    id INT PRIMARY KEY DEFAULT 1,
+    show_market_insights BOOLEAN DEFAULT FALSE,
+    contact_email VARCHAR(100),
+    contact_phone VARCHAR(50),
+    contact_working_hours VARCHAR(100),
+    contact_address TEXT
+);
+
+-- Insert Default Settings
+INSERT INTO app_settings (id, show_market_insights, contact_email, contact_phone, contact_working_hours, contact_address)
+VALUES (1, FALSE, 'hello@vueltra.com', '021-555-8888', 'Senin - Jumat (09:00 - 18:00 WIB)', 'Vueltra HQ, Jakarta')
+ON CONFLICT (id) DO NOTHING;

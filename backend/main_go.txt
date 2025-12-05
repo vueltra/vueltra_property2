@@ -1,0 +1,29 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"vueltra-backend/repository"
+	"vueltra-backend/router"
+	"vueltra-backend/service"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
+)
+
+func main() {
+	// 1. DB Connection
+	db, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=vueltra sslmode=disable")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	// 2. Wiring
+	repo := repository.NewRepository(db)
+	svc := service.NewService(repo)
+	r := router.NewRouter(svc)
+
+	// 3. Server
+	log.Println("Server running on :8080")
+	http.ListenAndServe(":8080", r)
+}
