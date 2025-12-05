@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { User, VerificationStatus } from '../types';
 import { StoreService } from '../services/store';
-import Toast, { ToastType } from '../components/Toast';
+import { useToast } from '../context/ToastContext'; // Use global Toast
 
 interface VerificationProps {
   user: User;
@@ -9,18 +10,14 @@ interface VerificationProps {
 }
 
 const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
-  const [ktpFile, setKtpFile] = useState<string | null>(null);
-  const [selfieFile, setSelfieFile] = useState<string | null>(null);
-  const [cardFile, setCardFile] = useState<string | null>(null);
+  const [ktpFile, setKtpFile] = useState<string | null>(user.ktpUrl || null);
+  const [selfieFile, setSelfieFile] = useState<string | null>(user.selfieUrl || null);
+  const [cardFile, setCardFile] = useState<string | null>(user.agentCardUrl || null);
   const [loading, setLoading] = useState(false);
   const [uploadingState, setUploadingState] = useState<{ [key: string]: boolean }>({});
   
-  // Toast State
-  const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
-
-  const showToast = (msg: string, type: ToastType = 'success') => {
-    setToast({ msg, type });
-  };
+  // Toast Context
+  const { showToast } = useToast();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void, key: string) => {
     const file = e.target.files?.[0];
@@ -67,10 +64,10 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
   if (user.verificationStatus === VerificationStatus.VERIFIED) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-12">
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-12">
           <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-3xl font-bold text-emerald-800 mb-2">Akun Terverifikasi!</h2>
-          <p className="text-emerald-700">Selamat! Akun Anda sudah memiliki centang biru. Tingkat kepercayaan pembeli terhadap listing Anda sekarang lebih tinggi.</p>
+          <h2 className="text-3xl font-bold text-green-700 mb-2">Akun Terverifikasi!</h2>
+          <p className="text-green-600">Selamat! Akun Anda sudah memiliki centang biru. Tingkat kepercayaan pembeli terhadap listing Anda sekarang lebih tinggi.</p>
         </div>
       </div>
     );
@@ -81,9 +78,9 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-12">
           <div className="text-6xl mb-4">⏳</div>
-          <h2 className="text-3xl font-bold text-yellow-800 mb-2">Dalam Peninjauan</h2>
-          <p className="text-yellow-700 mb-6">Dokumen Anda sedang diperiksa oleh Admin. Proses ini biasanya memakan waktu 1x24 jam.</p>
-          <div className="text-sm text-gray-500">
+          <h2 className="text-3xl font-bold text-yellow-700 mb-2">Dalam Peninjauan</h2>
+          <p className="text-yellow-600 mb-6">Dokumen Anda sedang diperiksa oleh Admin. Proses ini biasanya memakan waktu 1x24 jam.</p>
+          <div className="text-sm text-slate-600">
              Mohon cek kembali secara berkala.
           </div>
         </div>
@@ -93,11 +90,11 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-        <div className="bg-blue-800 p-8 text-white">
-          <h1 className="text-2xl font-bold mb-2">Verifikasi Identitas (KYC)</h1>
-          <p className="text-blue-100">
+      {/* Toast is now global */}
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-700 to-blue-800 px-8 py-10 text-white">
+           <h1 className="text-2xl font-bold mb-2">Verifikasi Identitas (KYC)</h1>
+           <p className="text-blue-100">
             Dapatkan badge "Terverifikasi" untuk meningkatkan kepercayaan pembeli dan mencegah penipuan.
             Data Anda aman dan hanya digunakan untuk validasi.
           </p>
@@ -120,20 +117,20 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
             
             {/* KTP */}
             <div className="space-y-2">
-              <label className="block font-bold text-gray-900">1. Foto KTP (Wajib)</label>
-              <p className="text-sm text-gray-500">Pastikan NIK dan Nama terbaca jelas. Tidak blur.</p>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors relative">
+              <label className="block font-bold text-slate-900">1. Foto KTP (Wajib)</label>
+              <p className="text-sm text-slate-600">Pastikan NIK dan Nama terbaca jelas. Tidak blur.</p>
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors relative">
                 {uploadingState['ktp'] ? (
-                    <div className="text-gray-500 text-sm">Mengupload KTP...</div>
+                    <div className="text-slate-600 text-sm">Mengupload KTP...</div>
                 ) : ktpFile ? (
                    <div className="relative h-48 w-full">
-                     <img src={ktpFile} alt="Preview KTP" className="h-full w-full object-contain" />
+                     <img src={ktpFile} alt="Preview KTP" className="h-full w-full object-contain rounded" />
                      <button type="button" onClick={() => setKtpFile(null)} className="absolute top-0 right-0 bg-red-600 text-white px-2 py-1 text-xs rounded">Hapus</button>
                    </div>
                 ) : (
                   <>
                     <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setKtpFile, 'ktp')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <div className="text-gray-400">
+                    <div className="text-slate-500">
                       <span className="block text-2xl mb-1">📷</span>
                       Klik untuk upload foto KTP
                     </div>
@@ -144,20 +141,20 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
 
             {/* Selfie */}
             <div className="space-y-2">
-              <label className="block font-bold text-gray-900">2. Selfie dengan KTP (Wajib)</label>
-              <p className="text-sm text-gray-500">Pegang KTP di samping wajah Anda. Pastikan wajah tidak tertutup aksesoris.</p>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors relative">
+              <label className="block font-bold text-slate-900">2. Selfie dengan KTP (Wajib)</label>
+              <p className="text-sm text-slate-600">Pegang KTP di samping wajah Anda. Pastikan wajah tidak tertutup aksesoris.</p>
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors relative">
                  {uploadingState['selfie'] ? (
-                    <div className="text-gray-500 text-sm">Mengupload Selfie...</div>
+                    <div className="text-slate-600 text-sm">Mengupload Selfie...</div>
                  ) : selfieFile ? (
                    <div className="relative h-48 w-full">
-                     <img src={selfieFile} alt="Preview Selfie" className="h-full w-full object-contain" />
+                     <img src={selfieFile} alt="Preview Selfie" className="h-full w-full object-contain rounded" />
                      <button type="button" onClick={() => setSelfieFile(null)} className="absolute top-0 right-0 bg-red-600 text-white px-2 py-1 text-xs rounded">Hapus</button>
                    </div>
                 ) : (
                   <>
                      <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setSelfieFile, 'selfie')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <div className="text-gray-400">
+                    <div className="text-slate-500">
                       <span className="block text-2xl mb-1">🤳</span>
                       Klik untuk upload foto Selfie
                     </div>
@@ -168,20 +165,20 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
 
             {/* Agent Card */}
             <div className="space-y-2">
-              <label className="block font-bold text-gray-900">3. Kartu Nama / ID Card Agen (Opsional)</label>
-              <p className="text-sm text-gray-500">Jika Anda agen properti profesional (Ray White, Era, dll), lampirkan kartu nama.</p>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors relative">
+              <label className="block font-bold text-slate-900">3. Kartu Nama / ID Card Agen (Opsional)</label>
+              <p className="text-sm text-slate-600">Jika Anda agen properti profesional (Ray White, Era, dll), lampirkan kartu nama.</p>
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors relative">
                  {uploadingState['card'] ? (
-                    <div className="text-gray-500 text-sm">Mengupload Kartu...</div>
+                    <div className="text-slate-600 text-sm">Mengupload Kartu...</div>
                  ) : cardFile ? (
                    <div className="relative h-48 w-full">
-                     <img src={cardFile} alt="Preview Card" className="h-full w-full object-contain" />
+                     <img src={cardFile} alt="Preview Card" className="h-full w-full object-contain rounded" />
                      <button type="button" onClick={() => setCardFile(null)} className="absolute top-0 right-0 bg-red-600 text-white px-2 py-1 text-xs rounded">Hapus</button>
                    </div>
                 ) : (
                   <>
                      <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setCardFile, 'card')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <div className="text-gray-400">
+                    <div className="text-slate-500">
                       <span className="block text-2xl mb-1">💳</span>
                       Klik untuk upload Kartu Nama
                     </div>
@@ -190,11 +187,11 @@ const Verification: React.FC<VerificationProps> = ({ user, onRefreshUser }) => {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-gray-100">
+            <div className="pt-4 border-t border-slate-200">
               <button 
                 type="submit" 
                 disabled={loading || Object.values(uploadingState).some(v => v)}
-                className="w-full bg-blue-800 hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition-all disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all disabled:opacity-50"
               >
                 {loading ? 'Mengirim Data...' : 'Kirim Data Verifikasi'}
               </button>

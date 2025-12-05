@@ -1,8 +1,10 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { User, Listing } from '../types';
 import { StoreService } from '../services/store';
 import ListingCard from '../components/ListingCard';
-import Toast, { ToastType } from '../components/Toast';
+import { useToast } from '../context/ToastContext';
 
 interface AgentProfileProps {
   agentId: string;
@@ -15,12 +17,8 @@ const AgentProfile: React.FC<AgentProfileProps> = ({ agentId, onListingClick, on
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Toast State
-  const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
-
-  const showToast = (msg: string, type: ToastType = 'success') => {
-    setToast({ msg, type });
-  };
+  // Toast Context
+  const { showToast } = useToast();
 
   // Simple wishlist state for visual purposes in this view
   const handleToggleWishlist = async (id: string) => {
@@ -54,9 +52,9 @@ const AgentProfile: React.FC<AgentProfileProps> = ({ agentId, onListingClick, on
 
   return (
     <div className="pb-16">
-       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+       {/* Toast is now global */}
        {/* Cover */}
-       <div className="h-48 bg-gradient-to-r from-slate-800 to-blue-900 relative">
+       <div className="h-48 bg-gradient-to-r from-blue-700 to-emerald-700 relative">
           <button onClick={onBack} className="absolute top-4 left-4 bg-white/20 hover:bg-white/30 text-white backdrop-blur px-4 py-2 rounded-full text-sm font-bold transition-colors z-20">
              &larr; Kembali
           </button>
@@ -67,7 +65,7 @@ const AgentProfile: React.FC<AgentProfileProps> = ({ agentId, onListingClick, on
           <div className="flex flex-col md:flex-row items-center md:items-end text-center md:text-left gap-6 mb-8">
              {/* Profile Picture */}
              <div className="w-40 h-40 bg-white p-2 rounded-full shadow-xl flex-shrink-0">
-               <div className="w-full h-full bg-blue-100 rounded-full flex items-center justify-center text-5xl font-bold text-blue-800 overflow-hidden">
+               <div className="w-full h-full bg-emerald-100 rounded-full flex items-center justify-center text-5xl font-bold text-emerald-800 overflow-hidden">
                  {agent.photoUrl ? (
                    <img src={agent.photoUrl} alt={agent.username} className="w-full h-full object-cover" />
                  ) : (
@@ -79,22 +77,22 @@ const AgentProfile: React.FC<AgentProfileProps> = ({ agentId, onListingClick, on
              {/* Agent Info */}
              <div className="flex-1 pb-4">
                 <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                   <h1 className="text-3xl font-bold text-slate-900 md:text-white drop-shadow-md">{agent.username}</h1>
+                   <h1 className="text-3xl font-bold text-slate-900 drop-shadow-md">{agent.username}</h1>
                    {agent.verificationStatus === 'VERIFIED' && (
                      <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
                        ✅ Verified
                      </span>
                    )}
                 </div>
-                <div className="text-slate-500 mb-4 md:text-blue-50 md:drop-shadow-sm font-medium">
+                <div className="text-slate-500 mb-4 font-medium">
                    Bergabung sejak {new Date(agent.joinedAt).toLocaleDateString()}
                 </div>
                 <div className="flex gap-4 justify-center md:justify-start">
-                   <div className="bg-white px-4 py-2 rounded-lg border shadow-sm">
+                   <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
                       <div className="text-xl font-bold text-slate-900">{listings.length}</div>
                       <div className="text-xs text-slate-500 uppercase">Properti</div>
                    </div>
-                   <div className="bg-white px-4 py-2 rounded-lg border shadow-sm">
+                   <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
                       <div className="text-xl font-bold text-slate-900">
                          {listings.filter(l => l.status === 'SOLD').length}
                       </div>
@@ -124,11 +122,11 @@ const AgentProfile: React.FC<AgentProfileProps> = ({ agentId, onListingClick, on
           <div className="pt-8">
              <h2 className="text-xl font-bold text-slate-900 mb-6 text-center md:text-left">Listing Properti ({listings.length})</h2>
              {listings.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-xl border border-dashed text-slate-500">
+                <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300 text-slate-500">
                    Agen ini belum memiliki listing aktif.
                 </div>
              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="flex flex-col space-y-6">
                    {listings.map(l => (
                       <ListingCard 
                         key={l.id} 

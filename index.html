@@ -11,16 +11,17 @@
         overflow-y: scroll; /* Force scrollbar to prevent layout shift */
       }
       body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f8fafc; /* slate-50 / cool paper */
+        font-family: 'Inter', sans-serif; /* Reverted to Inter */
+        background-color: #ffffff; /* White Background */
         color: #0f172a; /* slate-900 */
       }
-      /* Custom scrollbar */
+      /* Custom scrollbar Light Mode */
       ::-webkit-scrollbar {
         width: 8px;
+        background: #f1f5f9; /* slate-100 */
       }
       ::-webkit-scrollbar-track {
-        background: #f1f5f9;
+        background: #f1f5f9; /* slate-100 */
       }
       ::-webkit-scrollbar-thumb {
         background: #94a3b8; /* slate-400 */
@@ -31,13 +32,11 @@
       }
 
       /* Hide number input arrows/spinners */
-      /* Chrome, Safari, Edge, Opera */
       input[type=number]::-webkit-outer-spin-button,
       input[type=number]::-webkit-inner-spin-button {
         -webkit-appearance: none;
         margin: 0;
       }
-      /* Firefox */
       input[type=number] {
         -moz-appearance: textfield;
       }

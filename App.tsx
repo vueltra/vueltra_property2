@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar'; // New Sidebar
-import TopBar from './components/TopBar'; // New TopBar
+import { Sidebar } from './components/Sidebar'; 
+import TopBar from './components/TopBar'; 
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ListingDetail from './pages/ListingDetail';
+import ListingForm from './pages/ListingForm';
+import RequestForm from './pages/RequestForm';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -19,20 +21,22 @@ import Requests from './pages/Requests';
 import Contact from './pages/Contact'; 
 import { StoreService } from './services/store';
 import { User, Listing } from './types';
+import { ToastProvider } from './context/ToastContext';
 
-type Page = 'home' | 'dashboard' | 'detail' | 'login' | 'register' | 'forgot-password' | 'admin-dashboard' | 'verification' | 'agent-profile' | 'profile' | 'legal' | 'blog' | 'blog-detail' | 'requests' | 'contact';
+type Page = 'home' | 'dashboard' | 'create-listing' | 'edit-listing' | 'create-request' | 'detail' | 'login' | 'register' | 'forgot-password' | 'admin-dashboard' | 'verification' | 'agent-profile' | 'profile' | 'legal' | 'blog' | 'blog-detail' | 'requests' | 'contact';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [selectedBlogId, setSelectedBlogId] = useState<string>('');
+  const [editingListingId, setEditingListingId] = useState<string>('');
   const [blogCategoryFilter, setBlogCategoryFilter] = useState<string>('Semua'); 
   const [user, setUser] = useState<User | null>(null);
   
-  // New Layout States
+  // Layout States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState(''); // Search state lifted to App
+  const [globalSearch, setGlobalSearch] = useState('');
   
   const [pendingRedirect, setPendingRedirect] = useState<Page | null>(null);
 
@@ -52,7 +56,7 @@ function App() {
     const targetPage = page as Page;
     
     // Auth Guard
-    if ((targetPage === 'dashboard' || targetPage === 'admin-dashboard' || targetPage === 'verification' || targetPage === 'profile') && !user) {
+    if ((targetPage === 'dashboard' || targetPage === 'create-listing' || targetPage === 'create-request' || targetPage === 'admin-dashboard' || targetPage === 'verification' || targetPage === 'profile') && !user) {
       setCurrentPage('login');
       return;
     }
@@ -65,10 +69,11 @@ function App() {
 
     if (targetPage === 'blog-detail' && param) setSelectedBlogId(param);
     if (targetPage === 'blog' && param) setBlogCategoryFilter(param);
+    if (targetPage === 'edit-listing' && param) setEditingListingId(param);
     
     setCurrentPage(targetPage);
     window.scrollTo(0,0);
-    setIsSidebarOpen(false); // Close mobile sidebar on nav
+    setIsSidebarOpen(false);
   };
 
   const handleNavigateWithReturn = (target: string, returnTo: Page) => {
@@ -107,22 +112,20 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-stone-50 text-stone-900 font-sans selection:bg-emerald-200 selection:text-emerald-900">
-      
-      {/* Sidebar Component */}
-      <Sidebar 
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        activePage={currentPage}
-        onNavigate={handleNavigate}
-        user={user}
-        onLogout={handleLogout}
-      />
-
-      {/* Main Layout Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <ToastProvider>
+      <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-emerald-200 selection:text-emerald-900 flex flex-col">
         
-        {/* Top Header */}
+        {/* Mobile Sidebar (Drawer) */}
+        <Sidebar 
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          activePage={currentPage}
+          onNavigate={handleNavigate}
+          user={user}
+          onLogout={handleLogout}
+        />
+
+        {/* Top Header with Navigation */}
         <TopBar 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           searchValue={globalSearch}
@@ -130,105 +133,119 @@ function App() {
           user={user}
           onNavigate={handleNavigate}
           onLogout={handleLogout}
+          activePage={currentPage}
         />
 
-        {/* Scrollable Page Content */}
-        <main className="flex-1 overflow-y-auto">
-          {currentPage === 'home' && (
-            <Home 
-              user={user}
-              onListingClick={handleListingClick} 
-              onRefreshUser={refreshUser}
-              onNavigate={(page) => handleNavigateWithReturn(page, 'home')}
-              searchQuery={globalSearch} // Pass global search
-            />
-          )}
-          
-          {currentPage === 'dashboard' && user && (
-            <Dashboard user={user} onRefreshUser={refreshUser} />
-          )}
+        {/* Main Content Area */}
+        <div className="flex-1 w-full">
+            {currentPage === 'home' && (
+              <Home 
+                user={user}
+                onListingClick={handleListingClick} 
+                onRefreshUser={refreshUser}
+                onNavigate={(page) => handleNavigateWithReturn(page, 'home')}
+                searchQuery={globalSearch} 
+              />
+            )}
+            
+            {currentPage === 'dashboard' && user && (
+              <Dashboard user={user} onRefreshUser={refreshUser} onNavigate={handleNavigate} />
+            )}
 
-          {currentPage === 'admin-dashboard' && user && user.isAdmin && (
-            <AdminDashboard user={user} />
-          )}
+            {/* Full Page Forms */}
+            {currentPage === 'create-listing' && user && (
+              <ListingForm user={user} onNavigate={handleNavigate} />
+            )}
 
-          {currentPage === 'verification' && user && (
-            <Verification user={user} onRefreshUser={refreshUser} />
-          )}
+            {currentPage === 'edit-listing' && user && editingListingId && (
+              <ListingForm user={user} editListingId={editingListingId} onNavigate={handleNavigate} />
+            )}
 
-          {currentPage === 'profile' && user && (
-            <Profile user={user} onRefreshUser={refreshUser} onNavigate={handleNavigate} />
-          )}
+            {currentPage === 'create-request' && user && (
+              <RequestForm user={user} onNavigate={handleNavigate} />
+            )}
 
-          {currentPage === 'legal' && (
-            <Legal onBack={() => handleNavigate('home')} />
-          )}
+            {currentPage === 'admin-dashboard' && user && user.isAdmin && (
+              <AdminDashboard user={user} />
+            )}
 
-          {currentPage === 'blog' && (
-            <Blog 
-              onNavigate={handleNavigate} 
-              onBack={() => handleNavigate('home')} 
-              initialCategory={blogCategoryFilter} 
-            />
-          )}
+            {currentPage === 'verification' && user && (
+              <Verification user={user} onRefreshUser={refreshUser} />
+            )}
 
-          {currentPage === 'blog-detail' && selectedBlogId && (
-            <BlogDetail 
-              postId={selectedBlogId} 
-              onBack={() => handleNavigate('blog')}
-              onCategoryClick={(cat) => handleNavigate('blog', cat)}
-            />
-          )}
+            {currentPage === 'profile' && user && (
+              <Profile user={user} onRefreshUser={refreshUser} onNavigate={handleNavigate} />
+            )}
 
-          {currentPage === 'requests' && (
-            <Requests user={user} onNavigate={handleNavigate} />
-          )}
+            {currentPage === 'legal' && (
+              <Legal onBack={() => handleNavigate('home')} />
+            )}
 
-          {currentPage === 'contact' && (
-            <Contact onBack={() => handleNavigate('home')} />
-          )}
+            {currentPage === 'blog' && (
+              <Blog 
+                onNavigate={handleNavigate} 
+                onBack={() => handleNavigate('home')} 
+                initialCategory={blogCategoryFilter} 
+              />
+            )}
 
-          {currentPage === 'detail' && selectedListing && (
-            <ListingDetail 
-              listing={selectedListing} 
-              onBack={() => setCurrentPage('home')}
-              onAgentClick={handleAgentClick}
-              onListingClick={handleListingClick}
-              currentUser={user}
-              onRefreshUser={refreshUser}
-              onNavigate={(page) => handleNavigateWithReturn(page, 'detail')}
-            />
-          )}
+            {currentPage === 'blog-detail' && selectedBlogId && (
+              <BlogDetail 
+                postId={selectedBlogId} 
+                onBack={() => handleNavigate('blog')}
+                onCategoryClick={(cat) => handleNavigate('blog', cat)}
+              />
+            )}
 
-          {currentPage === 'agent-profile' && selectedAgentId && (
-            <AgentProfile 
-               agentId={selectedAgentId} 
-               onListingClick={handleListingClick} 
-               onBack={() => setCurrentPage('home')}
-            />
-          )}
+            {currentPage === 'requests' && (
+              <Requests user={user} onNavigate={handleNavigate} />
+            )}
 
-          {currentPage === 'login' && (
-            <Login onSuccess={handleAuthSuccess} onNavigate={handleNavigate} />
-          )}
+            {currentPage === 'contact' && (
+              <Contact onBack={() => handleNavigate('home')} />
+            )}
 
-          {currentPage === 'register' && (
-            <Register onSuccess={handleAuthSuccess} onNavigate={handleNavigate} />
-          )}
+            {currentPage === 'detail' && selectedListing && (
+              <ListingDetail 
+                listing={selectedListing} 
+                onBack={() => setCurrentPage('home')}
+                onAgentClick={handleAgentClick}
+                onListingClick={handleListingClick}
+                currentUser={user}
+                onRefreshUser={refreshUser}
+                onNavigate={(page) => handleNavigateWithReturn(page, 'detail')}
+              />
+            )}
 
-          {currentPage === 'forgot-password' && (
-            <ForgotPassword onNavigate={handleNavigate} />
-          )}
+            {currentPage === 'agent-profile' && selectedAgentId && (
+              <AgentProfile 
+                 agentId={selectedAgentId} 
+                 onListingClick={handleListingClick} 
+                 onBack={() => setCurrentPage('home')}
+              />
+            )}
 
-          {/* Footer inside Main Scroll Area */}
-          <footer className="bg-white border-t border-stone-200 py-8 text-center text-stone-500 text-sm mt-auto">
-            <div className="max-w-7xl mx-auto px-4">
-              <p>&copy; {new Date().getFullYear()} Vueltra.com.</p>
-            </div>
-          </footer>
-        </main>
+            {currentPage === 'login' && (
+              <Login onSuccess={handleAuthSuccess} onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'register' && (
+              <Register onSuccess={handleAuthSuccess} onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'forgot-password' && (
+              <ForgotPassword onNavigate={handleNavigate} />
+            )}
+        </div>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-slate-200 py-8 text-center text-slate-500 text-sm mt-auto">
+          <div className="max-w-7xl mx-auto px-4">
+            <p>&copy; {new Date().getFullYear()} Vueltra.com.</p>
+          </div>
+        </footer>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
 

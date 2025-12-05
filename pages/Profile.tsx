@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { User, VerificationStatus } from '../types';
 import { StoreService } from '../services/store';
-import Toast, { ToastType } from '../components/Toast';
+import { useToast } from '../context/ToastContext';
 
 interface ProfileProps {
   user: User;
@@ -18,12 +19,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onRefreshUser, onNavigate }) =>
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Toast State
-  const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
-
-  const showToast = (msg: string, type: ToastType = 'success') => {
-    setToast({ msg, type });
-  };
+  // Toast Context
+  const { showToast } = useToast();
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,11 +77,11 @@ const Profile: React.FC<ProfileProps> = ({ user, onRefreshUser, onNavigate }) =>
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
-      {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      {/* Toast is now global */}
       
       <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-800 to-blue-900 px-8 py-10 text-white">
-           <h1 className="text-2xl font-bold">Profil Saya</h1>
+        <div className="bg-gradient-to-r from-blue-700 to-blue-800 px-8 py-10 text-white">
+           <h1 className="text-2xl font-bold mb-2">Profil Saya</h1>
            <p className="text-blue-100 text-sm">Kelola informasi pribadi dan keamanan akun Anda.</p>
         </div>
         

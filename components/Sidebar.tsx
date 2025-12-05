@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { User } from '../types';
 
@@ -11,121 +12,137 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, activePage, onNavigate, user, onLogout }) => {
-  const menuItems = [
+  
+  const publicMenu = [
     { id: 'home', label: 'Cari Properti', icon: '🏠' },
-    { id: 'requests', label: 'Titip Cari (Wants)', icon: '📢' },
+    { id: 'requests', label: 'Titip Cari (Request)', icon: '📢' },
     { id: 'blog', label: 'Blog & Edukasi', icon: '📚' },
   ];
 
-  if (user) {
-    menuItems.push({ id: 'dashboard', label: 'Dashboard Saya', icon: '📊' });
-    menuItems.push({ id: 'profile', label: 'Profil Akun', icon: '👤' });
-    if (user.isAdmin) {
-      menuItems.push({ id: 'admin-dashboard', label: 'Admin Panel', icon: '🛡️' });
-    }
-  }
+  const userMenu = user ? [
+    { id: 'dashboard', label: 'Dashboard Saya', icon: '📊' },
+    { id: 'profile', label: 'Profil Akun', icon: '👤' },
+  ] : [];
+
+  const adminMenu = (user && user.isAdmin) ? [
+    { id: 'admin-dashboard', label: 'Admin Panel', icon: '🛡️' },
+  ] : [];
 
   const handleNav = (page: string) => {
     onNavigate(page);
-    if (window.innerWidth < 768) {
-      onClose(); // Close sidebar on mobile after click
-    }
+    onClose();
+  };
+
+  const renderMenuItem = (item: { id: string, label: string, icon: string }) => {
+    const isActive = activePage === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleNav(item.id)}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-all relative group ${
+          isActive
+            ? 'text-blue-700 bg-blue-50'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+        }`}
+      >
+        {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
+        <span className={`text-lg transition-transform group-hover:scale-110 ${isActive ? 'scale-110' : ''}`}>{item.icon}</span>
+        {item.label}
+      </button>
+    );
   };
 
   return (
     <>
       {/* Mobile Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onClose}
-        />
-      )}
+      <div 
+        className={`fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container - MOBILE ONLY */}
       <aside className={`
-        fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out flex flex-col
-        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl md:hidden
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo Section */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-100">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleNav('home')}>
-            <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-lg">
-               <rect width="40" height="40" rx="10" fill="#1d4ed8"/> {/* blue-700 */}
-               <path d="M12 12L20 30L28 12" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-lg shadow-blue-200">
+               <span className="text-white font-bold text-lg">V</span>
+            </div>
             <div className="flex flex-col">
               <span className="text-lg font-extrabold text-slate-900 tracking-tight leading-none">
                 Vueltra
               </span>
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">
-                Marketplace
-              </span>
             </div>
           </div>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-900 transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
-        {/* Navigation Links */}
-        <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNav(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                activePage === item.id
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
+        {/* Scrollable Menu */}
+        <div className="flex-1 overflow-y-auto py-6">
+          
+          <div className="space-y-1 mb-8">
+             <div className="px-6 mb-2 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Menu Utama</div>
+             {publicMenu.map(renderMenuItem)}
+          </div>
 
-          {/* Additional Links */}
-          <div className="pt-6 mt-6 border-t border-slate-100">
-             <div className="px-3 text-xs font-bold text-slate-400 uppercase mb-2">Lainnya</div>
-             <button onClick={() => handleNav('contact')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
-                <span>📞</span> Kontak Kami
-             </button>
-             <button onClick={() => handleNav('legal')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
-                <span>⚖️</span> Legalitas
-             </button>
+          {user && (
+            <div className="space-y-1 mb-8">
+               <div className="px-6 mb-2 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Akun Saya</div>
+               {userMenu.map(renderMenuItem)}
+            </div>
+          )}
+
+          {user && user.isAdmin && (
+            <div className="space-y-1">
+               <div className="px-6 mb-2 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Area Admin</div>
+               {adminMenu.map(renderMenuItem)}
+            </div>
+          )}
+
+          <div className="mt-8 pt-8 border-t border-slate-200 space-y-1">
+             <div className="px-6 mb-2 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Bantuan</div>
+             {[{id: 'contact', label: 'Hubungi Kami', icon: '📞'}, {id: 'legal', label: 'Legal & Privasi', icon: '⚖️'}].map(renderMenuItem)}
           </div>
         </div>
 
         {/* User Info / Logout (Bottom) */}
-        <div className="p-4 border-t border-slate-200">
+        <div className="p-4 border-t border-slate-200 bg-slate-50">
           {user ? (
-            <div className="flex items-center gap-3 mb-3">
-               <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold text-sm overflow-hidden">
-                  {user.photoUrl ? <img src={user.photoUrl} className="w-full h-full object-cover" alt="User"/> : user.username[0]}
+            <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-emerald-50/50">
+               <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800 font-bold text-sm">
+                 {user.photoUrl ? (
+                   <img src={user.photoUrl} alt={user.username} className="w-full h-full object-cover" />
+                 ) : (
+                   user.username[0]?.toUpperCase()
+                 )}
                </div>
-               <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 truncate">{user.username}</p>
-                  <p className="text-xs text-slate-500 truncate">Rp {user.credits.toLocaleString()}</p>
+               <div className="flex-1">
+                 <div className="font-bold text-slate-900 text-sm truncate">{user.username}</div>
+                 <div className="text-xs text-slate-600 truncate">{user.email}</div>
                </div>
             </div>
           ) : (
-             <div className="mb-3">
-                <button onClick={() => handleNav('login')} className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-800 transition-colors">
-                   Masuk / Daftar
-                </button>
-             </div>
+            <div className="mb-3">
+              <button onClick={() => handleNav('login')} className="w-full text-center px-4 py-2.5 rounded-lg text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm">
+                Masuk
+              </button>
+            </div>
           )}
-          
-          {user && (
-            <button 
-              onClick={onLogout}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
-            >
-              Keluar
-            </button>
-          )}
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors rounded-lg">
+            <span>🚪</span> Keluar
+          </button>
         </div>
       </aside>
     </>
   );
 };
 
-export default Sidebar;
+// Changed from default export to named export
+export { Sidebar };

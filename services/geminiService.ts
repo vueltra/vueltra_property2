@@ -1,3 +1,5 @@
+
+
 import { GoogleGenAI } from "@google/genai";
 
 export const generateDescription = async (title: string, category: string, price: number, location: string): Promise<string> => {

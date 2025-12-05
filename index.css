@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand Colors */
+  --color-primary: #059669; /* Emerald 600 */
+  --color-secondary: #2563eb; /* Blue 600 */
+  
+  /* Premium / Monetization Colors */
+  --color-premium: #d97706; /* Amber 600 */
+  --color-premium-bg: #fffbeb; /* Amber 50 */
+  --color-premium-border: #fcd34d; /* Amber 300 */
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-y: scroll;
+  }
+  
+  body {
+    @apply font-sans bg-white text-slate-900;
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-bold text-slate-900;
+  }
+}
+
+@layer components {
+  /* Layout Containers */
+  .container-fluid {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* --- LIGHT MODE FORM STYLES --- */
+  .form-input {
+    @apply w-full border border-slate-300 bg-white text-slate-900 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder-slate-400 disabled:bg-slate-100 disabled:text-slate-500;
+  }
+
+  /* Updated SVG icon color to be darker for light mode */
+  .form-select {
+    @apply w-full border border-slate-300 bg-white text-slate-900 rounded-xl p-3 pr-10 appearance-none outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow bg-no-repeat;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke-width%3D%222%22%20stroke%3D%22%2364748b%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19.5%208.25l-7.5%207.5-7.5-7.5%22%20%2F%3E%3C%2Fsvg%3E");
+    background-position: right 0.75rem center;
+    background-size: 1.25em 1.25em;
+  }
+
+  .form-label {
+    @apply block text-sm font-bold text-slate-700 mb-2;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+  }
+
+  /* Input Number Reset */
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+  
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  .animate-fade-in-down {
+    animation: fadeInDown 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-10px) translateX(-50%); }
+    to { opacity: 1; transform: translateY(0) translateX(-50%); }
+  }
+}

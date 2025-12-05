@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { BlogPost } from '../types';
 import { StoreService } from '../services/store';
@@ -24,20 +25,20 @@ const BlogDetail: React.FC<BlogDetailProps> = ({ postId, onBack, onCategoryClick
   }, [postId]);
 
   if (loading) return <div className="p-20 text-center text-slate-500">Memuat artikel...</div>;
-  if (!post) return <div className="p-20 text-center text-slate-500">Artikel tidak ditemukan.</div>;
+  if (!post) return <div className="p-20 text-center text-red-500">Artikel tidak ditemukan.</div>;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <button onClick={onBack} className="text-slate-500 hover:text-slate-900 font-medium flex items-center gap-2 mb-8">
+      <button onClick={onBack} className="text-slate-500 hover:text-slate-900 font-medium flex items-center gap-2 mb-8 transition-colors">
         &larr; Kembali ke Daftar Artikel
       </button>
 
-      <article className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <article className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="aspect-[21/9] w-full bg-slate-100">
            <img 
             src={post.imageUrl} 
             alt={post.title} 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover opacity-90"
             onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/1200/600?blur=2'; }}
            />
         </div>
@@ -46,15 +47,15 @@ const BlogDetail: React.FC<BlogDetailProps> = ({ postId, onBack, onCategoryClick
           <div className="flex items-center gap-4 mb-6">
              <button 
                onClick={() => onCategoryClick && onCategoryClick(post.category)}
-               className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full hover:bg-blue-200 transition-colors cursor-pointer"
+               className="bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full hover:bg-blue-200 transition-colors cursor-pointer"
                title={`Lihat artikel lainnya di kategori ${post.category}`}
              >
                {post.category}
              </button>
-             <span className="text-slate-400 text-sm font-medium">
+             <span className="text-slate-500 text-sm font-medium">
                {new Date(post.createdAt).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}
              </span>
-             <span className="text-slate-400 text-sm font-medium">
+             <span className="text-slate-500 text-sm font-medium">
                Penulis: {post.author}
              </span>
           </div>
@@ -63,7 +64,8 @@ const BlogDetail: React.FC<BlogDetailProps> = ({ postId, onBack, onCategoryClick
             {post.title}
           </h1>
 
-          <div className="prose prose-lg prose-blue max-w-none text-slate-700 whitespace-pre-wrap">
+          {/* Removed prose-invert for light mode */}
+          <div className="prose prose-lg prose-blue max-w-none text-slate-700 leading-relaxed whitespace-pre-wrap">
             {post.content}
           </div>
         </div>
@@ -71,9 +73,9 @@ const BlogDetail: React.FC<BlogDetailProps> = ({ postId, onBack, onCategoryClick
 
       {/* Share Section (Static) */}
       <div className="mt-8 border-t border-slate-200 pt-8 flex justify-between items-center">
-         <div className="font-bold text-slate-900">Bagikan artikel ini:</div>
+         <div className="font-bold text-slate-700">Bagikan artikel ini:</div>
          <div className="flex gap-2">
-            <button className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full text-slate-600 transition-colors">Copy Link</button>
+            <button className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full text-slate-600 hover:text-slate-900 transition-colors">Copy Link</button>
             <button className="bg-green-100 hover:bg-green-200 p-2 rounded-full text-green-700 transition-colors">WhatsApp</button>
          </div>
       </div>

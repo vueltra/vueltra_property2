@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { StoreService } from '../services/store';
-import Toast, { ToastType } from '../components/Toast';
+import { useToast } from '../context/ToastContext'; // Use global Toast
 
 interface LoginProps {
   onSuccess: () => void;
@@ -12,8 +13,8 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onNavigate }) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // Toast State
-  const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
+  // Toast Context
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +25,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onNavigate }) => {
       await StoreService.login(email, password);
       onSuccess();
     } catch (err: any) {
-      setToast({ msg: err.message || 'Gagal login.', type: 'error' });
+      showToast(err.message || 'Gagal login.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -32,16 +33,16 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onNavigate }) => {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
-      {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      {/* Toast is now global */}
       
       <div className="w-full max-w-md bg-white p-8 rounded-2xl border border-slate-200 shadow-xl">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">V</div>
+          <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">V</div>
           <h2 className="text-3xl font-bold text-slate-900 mb-2">Selamat Datang</h2>
-          <p className="text-slate-500">Masuk ke Vueltra Dashboard</p>
+          <p className="text-slate-600">Masuk ke Vueltra Dashboard</p>
         </div>
 
-        <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg mb-6 text-xs text-blue-800">
+        <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg mb-6 text-xs text-slate-600">
            <strong>Demo Admin Account:</strong><br/>
            Email: admin@vueltra.com<br/>
            Pass: admin
@@ -49,23 +50,23 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onNavigate }) => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <label className="form-label">Email</label>
             <input 
               type="email" 
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg p-3 text-slate-900 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all focus:ring-2"
+              className="form-input"
               placeholder="user@example.com"
             />
           </div>
           <div>
             <div className="flex justify-between mb-1">
-              <label className="block text-sm font-medium text-slate-700">Password</label>
+              <label className="form-label">Password</label>
               <button 
                 type="button" 
                 onClick={() => onNavigate('forgot-password')}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                className="text-xs text-blue-700 hover:text-blue-900 font-medium"
               >
                 Lupa password?
               </button>
@@ -75,7 +76,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onNavigate }) => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg p-3 text-slate-900 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all focus:ring-2"
+              className="form-input"
               placeholder="••••••••"
             />
           </div>
@@ -83,15 +84,15 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onNavigate }) => {
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full bg-slate-900 hover:bg-black text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Memproses...' : 'Masuk Sekarang'}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm text-slate-500 border-t border-slate-100 pt-6">
+        <div className="mt-8 text-center text-sm text-slate-600 border-t border-slate-200 pt-6">
           Belum punya akun?{' '}
-          <button onClick={() => onNavigate('register')} className="text-blue-600 hover:text-blue-700 font-bold">
+          <button onClick={() => onNavigate('register')} className="text-blue-700 hover:text-blue-900 font-bold">
             Daftar Gratis
           </button>
         </div>

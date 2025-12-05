@@ -1,17 +1,14 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Listing, Category, User, POPULAR_LOCATIONS, LOCATION_GROUPS, ListingType, VerificationStatus, ListingReport, BlogPost, AppSettings } from '../types';
+import { Listing, Category, User, ListingType, VerificationStatus, ListingReport, BlogPost, AppSettings, ListingStatus } from '../types';
 import { StoreService } from '../services/store';
-import Toast, { ToastType } from '../components/Toast';
+import { useToast } from '../context/ToastContext';
+import { POPULAR_LOCATIONS, LOCATION_GROUPS } from '../services/data'; // Corrected import path
 
 interface AdminDashboardProps {
   user: User;
 }
-
-// Custom select style class
-const SELECT_CLASS = "w-full border border-gray-300 bg-white text-gray-900 rounded-xl p-3 pr-10 appearance-none bg-no-repeat bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke-width%3D%222%22%20stroke%3D%22%236b7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19.5%208.25l-7.5%207.5-7.5-7.5%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25em_1.25em] bg-[right_0.75rem_center] outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-
-// Custom input style class
-const INPUT_CLASS = "w-full border border-gray-300 bg-white text-gray-900 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'listings' | 'verifications' | 'reports' | 'users' | 'blog' | 'settings'>('listings');
@@ -30,12 +27,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   });
   const [search, setSearch] = useState('');
 
-  // Toast State
-  const [toast, setToast] = useState<{msg: string, type: ToastType} | null>(null);
-
-  const showToast = (msg: string, type: ToastType = 'success') => {
-    setToast({ msg, type });
-  };
+  // Toast Context
+  const { showToast } = useToast();
 
   // Edit Form State (Listings)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -98,7 +91,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   });
   
   // Helper for conditional rendering in edit modal
-  const isBuilding = listingFormData.category !== Category.TANAH && listingFormData.category !== Category.SPACE;
+  const showBuildingArea = listingFormData.category !== Category.TANAH && listingFormData.category !== Category.SPACE;
+  const showBedrooms = [Category.RUMAH, Category.APARTEMEN, Category.RUKO, Category.HOTEL].includes(listingFormData.category);
 
   useEffect(() => {
     refreshData();
@@ -229,9 +223,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       const updated: Listing = {
         ...editingListing,
         ...listingFormData,
-        buildingArea: isBuilding ? listingFormData.buildingArea : 0,
-        bedrooms: isBuilding ? listingFormData.bedrooms : 0,
-        bathrooms: isBuilding ? listingFormData.bathrooms : 0,
+        buildingArea: showBuildingArea ? listingFormData.buildingArea : 0,
+        bedrooms: showBedrooms ? listingFormData.bedrooms : 0,
+        bathrooms: showBedrooms ? listingFormData.bathrooms : 0,
       };
       await StoreService.updateListing(updated);
     }
@@ -246,9 +240,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       await StoreService.createListing({
         ...listingFormData,
-        bedrooms: isBuilding ? listingFormData.bedrooms : 0, 
-        bathrooms: isBuilding ? listingFormData.bathrooms : 0,
-        buildingArea: isBuilding ? listingFormData.buildingArea : 0,
+        bedrooms: showBedrooms ? listingFormData.bedrooms : 0, 
+        bathrooms: showBedrooms ? listingFormData.bathrooms : 0,
+        buildingArea: showBuildingArea ? listingFormData.buildingArea : 0,
+        status: ListingStatus.ACTIVE
       }, creatingForUser.id);
 
       setIsCreateForUserModalOpen(false);
@@ -419,22 +414,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      {/* Toast is now global */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Admin Properti</h1>
         <div className="flex gap-2 flex-wrap">
-           <button onClick={() => setActiveTab('listings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'listings' ? 'bg-blue-800 text-white shadow-md' : 'bg-white text-slate-600 border hover:bg-slate-50'}`}>Listings</button>
-           <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'users' ? 'bg-blue-800 text-white shadow-md' : 'bg-white text-slate-600 border hover:bg-slate-50'}`}>Pengguna</button>
-           <button onClick={() => setActiveTab('verifications')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'verifications' ? 'bg-blue-800 text-white shadow-md' : 'bg-white text-slate-600 border hover:bg-slate-50'}`}>
+           <button onClick={() => setActiveTab('listings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'listings' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'}`}>Listings</button>
+           <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'users' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'}`}>Pengguna</button>
+           <button onClick={() => setActiveTab('verifications')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'verifications' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'}`}>
              Verifikasi {pendingUsers.length > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-sm">{pendingUsers.length}</span>}
            </button>
-           <button onClick={() => setActiveTab('reports')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'reports' ? 'bg-blue-800 text-white shadow-md' : 'bg-white text-slate-600 border hover:bg-slate-50'}`}>
+           <button onClick={() => setActiveTab('reports')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'reports' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'}`}>
              Laporan {reports.length > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-sm">{reports.length}</span>}
            </button>
-           <button onClick={() => setActiveTab('blog')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'blog' ? 'bg-blue-800 text-white shadow-md' : 'bg-white text-slate-600 border hover:bg-slate-50'}`}>
+           <button onClick={() => setActiveTab('blog')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'blog' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'}`}>
              Blog
            </button>
-           <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'settings' ? 'bg-blue-800 text-white shadow-md' : 'bg-white text-slate-600 border hover:bg-slate-50'}`}>
+           <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'}`}>
              ⚙️ Pengaturan
            </button>
         </div>
@@ -448,13 +443,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               placeholder="Cari ID, Judul, atau Seller..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full p-3 border border-gray-300 bg-white text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              className="form-input"
             />
           </div>
            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="bg-slate-100 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
                   <tr>
                     <th className="p-4">Listing</th>
                     <th className="p-4">Lokasi & Tipe</th>
@@ -463,31 +458,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-200">
                   {filteredListings.map(l => (
                     <tr key={l.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                           {l.isExample && <span className="bg-slate-200 text-slate-600 text-[10px] px-1.5 py-0.5 rounded font-bold border border-slate-300">CONTOH</span>}
+                           {l.isExample && <span className="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded font-bold border border-slate-200">CONTOH</span>}
                            <div className="font-bold text-slate-900 line-clamp-1">{l.title}</div>
                         </div>
                         <div className="text-xs text-slate-500">{l.id} • Rp {l.price.toLocaleString()}</div>
                       </td>
-                      <td className="p-4 text-sm text-slate-700">
+                      <td className="p-4 text-sm text-slate-900">
                         <div>{l.location}</div>
-                        <div className="text-xs text-slate-500">{l.category} ({l.type})</div>
+                        <div className="text-xs text-slate-600">{l.category} ({l.type})</div>
                       </td>
-                      <td className="p-4 text-sm text-slate-700">
+                      <td className="p-4 text-sm text-slate-900">
                         <div className="font-semibold">{l.sellerName}</div>
                       </td>
                       <td className="p-4 text-center">
-                        <button onClick={() => handleTogglePin(l.id, l.isPinned)} className={`px-2 py-1 text-xs rounded border transition-colors ${l.isPinned ? 'bg-yellow-100 border-yellow-400 text-yellow-800' : 'bg-slate-100 text-slate-500'}`}>
+                        <button onClick={() => handleTogglePin(l.id, l.isPinned)} className={`px-2 py-1 text-xs rounded border transition-colors ${l.isPinned ? 'bg-yellow-100 border-yellow-200 text-yellow-700' : 'bg-slate-100 text-slate-600 border-slate-300'}`}>
                           {l.isPinned ? 'PINNED' : 'No'}
                         </button>
                       </td>
                       <td className="p-4 text-right space-x-2">
-                        <button onClick={() => openEditListingModal(l)} className="text-blue-600 font-bold text-xs hover:underline">Edit</button>
-                        <button onClick={() => handleDelete(l.id)} className="text-red-600 font-bold text-xs hover:underline">Del</button>
+                        <button onClick={() => openEditListingModal(l)} className="text-blue-700 font-bold text-xs hover:underline">Edit</button>
+                        <button onClick={() => handleDelete(l.id)} className="text-red-700 font-bold text-xs hover:underline">Del</button>
                       </td>
                     </tr>
                   ))}
@@ -501,29 +496,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Other Tabs content omitted for brevity as they remain unchanged */}
       {activeTab === 'users' && (
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <h3 className="p-6 text-lg font-bold text-slate-900 border-b">Daftar Pengguna ({filteredUsers.length})</h3>
+            <h3 className="p-6 text-lg font-bold text-slate-900 border-b border-slate-200">Daftar Pengguna ({filteredUsers.length})</h3>
             <div className="px-6 pt-4 pb-2">
-               <input type="text" placeholder="Cari Nama atau Email user..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900" />
+               <input type="text" placeholder="Cari Nama atau Email user..." value={search} onChange={(e) => setSearch(e.target.value)} className="form-input" />
             </div>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b border-slate-200">
                      <tr><th className="p-4">User Info</th><th className="p-4">Status</th><th className="p-4">Saldo</th><th className="p-4 text-right">Kelola</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-200">
                      {filteredUsers.map(u => (
                         <tr key={u.id} className="hover:bg-slate-50">
                            <td className="p-4">
                               <div className="font-bold text-slate-900">{u.username}</div>
-                              <div className="text-xs text-slate-500">{u.email}</div>
-                              {u.phoneNumber && <div className="text-xs text-slate-400">{u.phoneNumber}</div>}
+                              <div className="text-xs text-slate-600">{u.email}</div>
+                              {u.phoneNumber && <div className="text-xs text-slate-500">{u.phoneNumber}</div>}
                            </td>
-                           <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${u.verificationStatus === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-slate-100'}`}>{u.verificationStatus}</span></td>
+                           <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${u.verificationStatus === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{u.verificationStatus}</span></td>
                            <td className="p-4 font-mono font-bold text-blue-700">Rp {u.credits.toLocaleString()}</td>
                            <td className="p-4 text-right space-x-2 flex justify-end">
-                              <button onClick={() => openEditUserModal(u)} className="bg-slate-100 text-xs font-bold p-1.5 rounded">Edit</button>
-                              <button onClick={() => openCreditModal(u)} className="bg-slate-100 text-xs font-bold p-1.5 rounded">Saldo</button>
-                              <button onClick={() => openCreateForUserModal(u)} className="bg-blue-50 text-blue-700 text-xs font-bold p-1.5 rounded">+Iklan</button>
+                              <button onClick={() => openEditUserModal(u)} className="bg-slate-100 text-xs font-bold p-1.5 rounded border border-slate-300 text-blue-700 hover:bg-slate-200">Edit</button>
+                              <button onClick={() => openCreditModal(u)} className="bg-slate-100 text-xs font-bold p-1.5 rounded border border-slate-300 text-emerald-700 hover:bg-slate-200">Saldo</button>
+                              <button onClick={() => openCreateForUserModal(u)} className="bg-blue-100 text-blue-700 text-xs font-bold p-1.5 rounded border border-blue-200 hover:bg-blue-200">+Iklan</button>
                            </td>
                         </tr>
                      ))}
@@ -536,30 +531,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Reports Tab */}
       {activeTab === 'reports' && (
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <h3 className="p-6 text-lg font-bold text-slate-900 border-b">Laporan Iklan ({reports.length})</h3>
+            <h3 className="p-6 text-lg font-bold text-slate-900 border-b border-slate-200">Laporan Iklan ({reports.length})</h3>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b border-slate-200">
                      <tr><th className="p-4">Pelapor</th><th className="p-4">Listing</th><th className="p-4">Alasan</th><th className="p-4 text-right">Tindakan</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-200">
                      {reports.length === 0 ? (
-                        <tr><td colSpan={4} className="p-8 text-center text-slate-400">Tidak ada laporan masuk.</td></tr>
+                        <tr><td colSpan={4} className="p-8 text-center text-slate-500">Tidak ada laporan masuk.</td></tr>
                      ) : (
                         reports.map(r => (
                            <tr key={r.id} className="hover:bg-slate-50">
                               <td className="p-4">
                                  <div className="font-bold text-slate-900">{r.reporterName}</div>
-                                 <div className="text-xs text-slate-400">{new Date(r.date).toLocaleDateString()}</div>
+                                 <div className="text-xs text-slate-600">{new Date(r.date).toLocaleDateString()}</div>
                               </td>
                               <td className="p-4">
-                                 <div className="font-medium text-slate-800">{r.listingTitle}</div>
-                                 <div className="text-xs text-slate-500 font-mono">{r.listingId}</div>
+                                 <div className="font-medium text-slate-900">{r.listingTitle}</div>
+                                 <div className="text-xs text-slate-600 font-mono">{r.listingId}</div>
                               </td>
                               <td className="p-4 text-sm text-red-600 font-bold">{r.reason}</td>
                               <td className="p-4 text-right space-x-2">
-                                 <button onClick={() => handleDeleteReport(r.id)} className="bg-slate-100 text-xs font-bold px-2 py-1 rounded">Abaikan</button>
-                                 <button onClick={() => handleActionReport(r)} className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded">Hapus Iklan</button>
+                                 <button onClick={() => handleDeleteReport(r.id)} className="bg-slate-100 text-xs font-bold px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-200">Abaikan</button>
+                                 <button onClick={() => handleActionReport(r)} className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 hover:bg-red-200">Hapus Iklan</button>
                               </td>
                            </tr>
                         ))
@@ -573,23 +568,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Verifications Tab */}
       {activeTab === 'verifications' && (
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <h3 className="p-6 text-lg font-bold text-slate-900 border-b">Request Verifikasi ({pendingUsers.length})</h3>
+            <h3 className="p-6 text-lg font-bold text-slate-900 border-b border-slate-200">Request Verifikasi ({pendingUsers.length})</h3>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b border-slate-200">
                      <tr><th className="p-4">User</th><th className="p-4">Status</th><th className="p-4 text-right">Review</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-200">
                      {pendingUsers.length === 0 ? (
-                        <tr><td colSpan={3} className="p-8 text-center text-slate-400">Tidak ada pending request.</td></tr>
+                        <tr><td colSpan={3} className="p-8 text-center text-slate-500">Tidak ada pending request.</td></tr>
                      ) : (
                         pendingUsers.map(u => (
                            <tr key={u.id} className="hover:bg-slate-50">
                               <td className="p-4">
                                  <div className="font-bold text-slate-900">{u.username}</div>
-                                 <div className="text-xs text-slate-500">{u.email}</div>
+                                 <div className="text-xs text-slate-600">{u.email}</div>
                               </td>
-                              <td className="p-4"><span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">PENDING</span></td>
+                              <td className="p-4"><span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded border border-yellow-200">PENDING</span></td>
                               <td className="p-4 text-right">
                                  <button onClick={() => setViewingUser(u)} className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded shadow hover:bg-blue-700">Lihat Dokumen</button>
                               </td>
@@ -605,29 +600,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Blog Tab */}
       {activeTab === 'blog' && (
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b flex justify-between items-center">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                <h3 className="text-lg font-bold text-slate-900">Artikel Blog ({filteredBlogPosts.length})</h3>
                <button onClick={openCreateBlogModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700">
                   + Tulis Artikel
                </button>
             </div>
             <div className="px-6 pt-4 pb-2">
-               <input type="text" placeholder="Cari Judul Artikel..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900" />
+               <input type="text" placeholder="Cari Judul Artikel..." value={search} onChange={(e) => setSearch(e.target.value)} className="form-input" />
             </div>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium border-b border-slate-200">
                      <tr><th className="p-4">Judul</th><th className="p-4">Kategori</th><th className="p-4">Tanggal</th><th className="p-4 text-right">Aksi</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-200">
                      {filteredBlogPosts.map(p => (
                         <tr key={p.id} className="hover:bg-slate-50">
                            <td className="p-4 font-bold text-slate-900">{p.title}</td>
-                           <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold">{p.category}</span></td>
-                           <td className="p-4 text-sm text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</td>
+                           <td className="p-4"><span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold border border-blue-200"></span>{p.category}</td>
+                           <td className="p-4 text-sm text-slate-600">{new Date(p.createdAt).toLocaleDateString()}</td>
                            <td className="p-4 text-right space-x-2">
-                              <button onClick={() => openEditBlogModal(p)} className="text-blue-600 font-bold text-xs hover:underline">Edit</button>
-                              <button onClick={() => handleDeleteBlogPost(p.id)} className="text-red-600 font-bold text-xs hover:underline">Hapus</button>
+                              <button onClick={() => openEditBlogModal(p)} className="text-blue-700 font-bold text-xs hover:underline">Edit</button>
+                              <button onClick={() => handleDeleteBlogPost(p.id)} className="text-red-700 font-bold text-xs hover:underline">Hapus</button>
                            </td>
                         </tr>
                      ))}
@@ -640,27 +635,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* SETTINGS TAB */}
       {activeTab === 'settings' && (
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
-            <h3 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Konfigurasi Sistem</h3>
+            <h3 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-200">Konfigurasi Sistem</h3>
             
             <div className="space-y-8">
                {/* Feature Flags */}
                <div>
-                  <h4 className="font-bold text-slate-900 mb-4 bg-slate-100 px-4 py-2 rounded-lg">Feature Flags</h4>
-                  <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
+                  <h4 className="font-bold text-slate-900 mb-4 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">Feature Flags</h4>
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
                      <div>
                         <h4 className="font-bold text-slate-900">Market Insight Widget</h4>
-                        <p className="text-sm text-slate-500 mt-1">
+                        <p className="text-sm text-slate-600 mt-1">
                            Tampilkan data analitik wilayah (harga rata-rata, tren) di halaman depan.
                         </p>
                      </div>
                      <div className="flex items-center">
                         <button 
                            onClick={handleToggleMarketInsight}
-                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${settings.showMarketInsights ? 'bg-blue-600' : 'bg-gray-200'}`}
+                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${settings.showMarketInsights ? 'bg-blue-600' : 'bg-slate-300'}`}
                         >
                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.showMarketInsights ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
-                        <span className="ml-3 text-sm font-bold text-slate-700 w-16">
+                        <span className="ml-3 text-sm font-bold text-slate-900 w-16">
                            {settings.showMarketInsights ? 'AKTIF' : 'NON-AKTIF'}
                         </span>
                      </div>
@@ -669,23 +664,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
                {/* Contact Settings */}
                <div>
-                  <h4 className="font-bold text-slate-900 mb-4 bg-slate-100 px-4 py-2 rounded-lg">Info Kontak / Footer</h4>
+                  <h4 className="font-bold text-slate-900 mb-4 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">Info Kontak / Footer</h4>
                   <form onSubmit={handleSaveContactSettings} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div>
-                        <label className="text-xs font-bold text-slate-500">Email Support</label>
-                        <input className={INPUT_CLASS} value={settings.contactEmail} onChange={e => setSettings({...settings, contactEmail: e.target.value})} placeholder="support@vueltra.com" />
+                        <label className="text-xs font-bold text-slate-600">Email Support</label>
+                        <input className="form-input" value={settings.contactEmail} onChange={e => setSettings({...settings, contactEmail: e.target.value})} placeholder="support@vueltra.com" />
                      </div>
                      <div>
-                        <label className="text-xs font-bold text-slate-500">Nomor Telepon</label>
-                        <input className={INPUT_CLASS} value={settings.contactPhone} onChange={e => setSettings({...settings, contactPhone: e.target.value})} placeholder="021-xxxxxx" />
+                        <label className="text-xs font-bold text-slate-600">Nomor Telepon</label>
+                        <input className="form-input" value={settings.contactPhone} onChange={e => setSettings({...settings, contactPhone: e.target.value})} placeholder="021-xxxxxx" />
                      </div>
                      <div>
-                        <label className="text-xs font-bold text-slate-500">Jam Kerja</label>
-                        <input className={INPUT_CLASS} value={settings.contactWorkingHours} onChange={e => setSettings({...settings, contactWorkingHours: e.target.value})} placeholder="Senin - Jumat..." />
+                        <label className="text-xs font-bold text-slate-600">Jam Kerja</label>
+                        <input className="form-input" value={settings.contactWorkingHours} onChange={e => setSettings({...settings, contactWorkingHours: e.target.value})} placeholder="Senin - Jumat..." />
                      </div>
                      <div>
-                        <label className="text-xs font-bold text-slate-500">Alamat Kantor</label>
-                        <input className={INPUT_CLASS} value={settings.contactAddress} onChange={e => setSettings({...settings, contactAddress: e.target.value})} placeholder="Jakarta..." />
+                        <label className="text-xs font-bold text-slate-600">Alamat Kantor</label>
+                        <input className="form-input" value={settings.contactAddress} onChange={e => setSettings({...settings, contactAddress: e.target.value})} placeholder="Jakarta..." />
                      </div>
                      <div className="md:col-span-2 flex justify-end">
                         <button type="submit" className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-blue-700">Simpan Perubahan Kontak</button>
@@ -701,23 +696,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Edit Listing Modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh] border border-slate-200">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Listing (Admin Mode)</h3>
             <form onSubmit={handleSaveListing} className="space-y-4">
                {/* EXAMPLE Checkbox */}
-               <div className="bg-slate-100 p-3 rounded-lg border border-slate-300 flex items-center gap-3">
-                  <input type="checkbox" id="isExampleEdit" className="w-5 h-5 rounded border-slate-300 text-slate-600 focus:ring-slate-500" checked={listingFormData.isExample} onChange={(e) => setListingFormData({...listingFormData, isExample: e.target.checked})} />
-                  <label htmlFor="isExampleEdit" className="text-sm font-bold text-slate-700 cursor-pointer">Tandai sebagai CONTOH (Simulasi/Mock Data)</label>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center gap-3">
+                  <input type="checkbox" id="isExampleEdit" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 bg-white" checked={listingFormData.isExample} onChange={(e) => setListingFormData({...listingFormData, isExample: e.target.checked})} />
+                  <label htmlFor="isExampleEdit" className="text-sm font-bold text-slate-900 cursor-pointer">Tandai sebagai CONTOH (Simulasi/Mock Data)</label>
                </div>
 
+               {/* Same form fields as Edit Listing, simplified reuse */}
                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-500">Tipe</label><select className={SELECT_CLASS} value={listingFormData.type} onChange={e => setListingFormData({...listingFormData, type: e.target.value as ListingType})}>{Object.values(ListingType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label className="text-xs font-bold text-slate-500">Kategori</label><select className={SELECT_CLASS} value={listingFormData.category} onChange={e => setListingFormData({...listingFormData, category: e.target.value as Category})}>{Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><label className="text-xs font-bold text-slate-600">Tipe</label><select className="form-select" value={listingFormData.type} onChange={e => setListingFormData({...listingFormData, type: e.target.value as ListingType})}>{Object.values(ListingType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label className="text-xs font-bold text-slate-600">Kategori</label><select className="form-select" value={listingFormData.category} onChange={e => setListingFormData({...listingFormData, category: e.target.value as Category})}>{Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                </div>
-               <div><label className="text-xs font-bold text-slate-500">Judul</label><input required className={INPUT_CLASS} value={listingFormData.title} onChange={e => setListingFormData({...listingFormData, title: e.target.value})} /></div>
+               <div><label className="text-xs font-bold text-slate-600">Judul</label><input required className="form-input" value={listingFormData.title} onChange={e => setListingFormData({...listingFormData, title: e.target.value})} /></div>
                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-500">Lokasi</label>
-                    <select className={SELECT_CLASS} value={listingFormData.location} onChange={e => setListingFormData({...listingFormData, location: e.target.value})}>
+                  <div><label className="text-xs font-bold text-slate-600">Lokasi</label>
+                    <select className="form-select" value={listingFormData.location} onChange={e => setListingFormData({...listingFormData, location: e.target.value})}>
                       {LOCATION_GROUPS.map((group, idx) => (
                         <optgroup key={idx} label={group.region}>
                           {group.cities.map(city => <option key={city} value={city}>{city}</option>)}
@@ -725,33 +721,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                       ))}
                     </select>
                   </div>
-                  <div><label className="text-xs font-bold text-slate-500">Harga</label><input required type="number" className={INPUT_CLASS} value={listingFormData.price} onChange={e => setListingFormData({...listingFormData, price: Number(e.target.value)})} /></div>
+                  <div><label className="text-xs font-bold text-slate-600">Harga</label><input required type="number" className="form-input" value={listingFormData.price} onChange={e => setListingFormData({...listingFormData, price: Number(e.target.value)})} /></div>
                </div>
-               <div><label className="text-xs font-bold text-slate-500">Alamat</label><input className={INPUT_CLASS} value={listingFormData.address} onChange={e => setListingFormData({...listingFormData, address: e.target.value})} /></div>
                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div className={!isBuilding ? "col-span-2" : ""}><label className="text-xs font-bold text-slate-500">L. Tanah</label><input required type="number" className={INPUT_CLASS} value={listingFormData.surfaceArea} onChange={e => setListingFormData({...listingFormData, surfaceArea: Number(e.target.value)})} /></div>
-                  {isBuilding && (
+                  <div className={!showBuildingArea ? "col-span-2" : ""}><label className="text-xs font-bold text-slate-600">L. Tanah</label><input required type="number" className="form-input" value={listingFormData.surfaceArea} onChange={e => setListingFormData({...listingFormData, surfaceArea: Number(e.target.value)})} /></div>
+                  {showBuildingArea && (
+                    <div><label className="text-xs font-bold text-slate-600">L. Bangunan</label><input required type="number" className="form-input" value={listingFormData.buildingArea} onChange={e => setListingFormData({...listingFormData, buildingArea: Number(e.target.value)})} /></div>
+                  )}
+                  {showBedrooms && (
                     <>
-                      <div><label className="text-xs font-bold text-slate-500">L. Bangunan</label><input required type="number" className={INPUT_CLASS} value={listingFormData.buildingArea} onChange={e => setListingFormData({...listingFormData, buildingArea: Number(e.target.value)})} /></div>
-                      <div><label className="text-xs font-bold text-slate-500">K. Tidur</label><input required type="number" className={INPUT_CLASS} value={listingFormData.bedrooms} onChange={e => setListingFormData({...listingFormData, bedrooms: Number(e.target.value)})} /></div>
-                      <div><label className="text-xs font-bold text-slate-500">K. Mandi</label><input required type="number" className={INPUT_CLASS} value={listingFormData.bathrooms} onChange={e => setListingFormData({...listingFormData, bathrooms: Number(e.target.value)})} /></div>
+                      <div><label className="text-xs font-bold text-slate-600">K. Tidur</label><input required type="number" className="form-input" value={listingFormData.bedrooms} onChange={e => setListingFormData({...listingFormData, bedrooms: Number(e.target.value)})} /></div>
+                      <div><label className="text-xs font-bold text-slate-600">K. Mandi</label><input required type="number" className="form-input" value={listingFormData.bathrooms} onChange={e => setListingFormData({...listingFormData, bathrooms: Number(e.target.value)})} /></div>
                     </>
                   )}
                </div>
                
                {/* Image Upload */}
                <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Foto Properti</label>
+                   <label className="text-xs font-bold text-slate-600 mb-1 block">Foto Properti</label>
                    <div className="flex gap-2">
                        {listingFormData.imageUrl && <img src={listingFormData.imageUrl} className="h-10 w-10 object-cover rounded" />}
-                       <input type="file" accept="image/*" onChange={handleListingImageUpload} disabled={isUploading} className="text-sm" />
+                       <input type="file" accept="image/*" onChange={handleListingImageUpload} disabled={isUploading} className="text-sm text-slate-900" />
                    </div>
                </div>
                
-               <div><label className="text-xs font-bold text-slate-500">Deskripsi</label><textarea required rows={3} className={INPUT_CLASS} value={listingFormData.description} onChange={e => setListingFormData({...listingFormData, description: e.target.value})} /></div>
+               <div><label className="text-xs font-bold text-slate-600">Deskripsi</label><textarea required rows={3} className="form-input" value={listingFormData.description} onChange={e => setListingFormData({...listingFormData, description: e.target.value})} /></div>
                <div className="flex justify-end gap-2 mt-4">
-                  <button type="button" onClick={() => setIsEditModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold">Batal</button>
-                  <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Simpan</button>
+                  <button type="button" onClick={() => setIsEditModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200">Batal</button>
+                  <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">Simpan</button>
                </div>
             </form>
           </div>
@@ -761,25 +758,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Create Listing For User Modal */}
       {isCreateForUserModalOpen && creatingForUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh] border border-slate-200">
             <h3 className="text-lg font-bold text-slate-900 mb-2">Tambah Listing untuk User</h3>
-            <p className="text-sm text-slate-500 mb-4">Pemilik: <strong>{creatingForUser.username}</strong> ({creatingForUser.email})</p>
+            <p className="text-sm text-slate-600 mb-4">Pemilik: <strong>{creatingForUser.username}</strong> ({creatingForUser.email})</p>
             <form onSubmit={handleCreateListingForUser} className="space-y-4">
                {/* EXAMPLE Checkbox */}
-               <div className="bg-slate-100 p-3 rounded-lg border border-slate-300 flex items-center gap-3">
-                  <input type="checkbox" id="isExampleCreate" className="w-5 h-5 rounded border-slate-300 text-slate-600 focus:ring-slate-500" checked={listingFormData.isExample} onChange={(e) => setListingFormData({...listingFormData, isExample: e.target.checked})} />
-                  <label htmlFor="isExampleCreate" className="text-sm font-bold text-slate-700 cursor-pointer">Tandai sebagai CONTOH (Simulasi/Mock Data)</label>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center gap-3">
+                  <input type="checkbox" id="isExampleCreate" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 bg-white" checked={listingFormData.isExample} onChange={(e) => setListingFormData({...listingFormData, isExample: e.target.checked})} />
+                  <label htmlFor="isExampleCreate" className="text-sm font-bold text-slate-900 cursor-pointer">Tandai sebagai CONTOH (Simulasi/Mock Data)</label>
                </div>
 
                {/* Same form fields as Edit Listing, simplified reuse */}
                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-500">Tipe</label><select className={SELECT_CLASS} value={listingFormData.type} onChange={e => setListingFormData({...listingFormData, type: e.target.value as ListingType})}>{Object.values(ListingType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label className="text-xs font-bold text-slate-500">Kategori</label><select className={SELECT_CLASS} value={listingFormData.category} onChange={e => setListingFormData({...listingFormData, category: e.target.value as Category})}>{Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><label className="text-xs font-bold text-slate-600">Tipe</label><select className="form-select" value={listingFormData.type} onChange={e => setListingFormData({...listingFormData, type: e.target.value as ListingType})}>{Object.values(ListingType).map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label className="text-xs font-bold text-slate-600">Kategori</label><select className="form-select" value={listingFormData.category} onChange={e => setListingFormData({...listingFormData, category: e.target.value as Category})}>{Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                </div>
-               <div><label className="text-xs font-bold text-slate-500">Judul</label><input required className={INPUT_CLASS} value={listingFormData.title} onChange={e => setListingFormData({...listingFormData, title: e.target.value})} /></div>
+               <div><label className="text-xs font-bold text-slate-600">Judul</label><input required className="form-input" value={listingFormData.title} onChange={e => setListingFormData({...listingFormData, title: e.target.value})} /></div>
                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-500">Lokasi</label>
-                    <select className={SELECT_CLASS} value={listingFormData.location} onChange={e => setListingFormData({...listingFormData, location: e.target.value})}>
+                  <div><label className="text-xs font-bold text-slate-600">Lokasi</label>
+                    <select className="form-select" value={listingFormData.location} onChange={e => setListingFormData({...listingFormData, location: e.target.value})}>
                       {LOCATION_GROUPS.map((group, idx) => (
                         <optgroup key={idx} label={group.region}>
                           {group.cities.map(city => <option key={city} value={city}>{city}</option>)}
@@ -787,32 +784,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                       ))}
                     </select>
                   </div>
-                  <div><label className="text-xs font-bold text-slate-500">Harga</label><input required type="number" className={INPUT_CLASS} value={listingFormData.price} onChange={e => setListingFormData({...listingFormData, price: Number(e.target.value)})} /></div>
+                  <div><label className="text-xs font-bold text-slate-600">Harga</label><input required type="number" className="form-input" value={listingFormData.price} onChange={e => setListingFormData({...listingFormData, price: Number(e.target.value)})} /></div>
                </div>
                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div className={!isBuilding ? "col-span-2" : ""}><label className="text-xs font-bold text-slate-500">L. Tanah</label><input required type="number" className={INPUT_CLASS} value={listingFormData.surfaceArea} onChange={e => setListingFormData({...listingFormData, surfaceArea: Number(e.target.value)})} /></div>
-                  {isBuilding && (
+                  <div className={!showBuildingArea ? "col-span-2" : ""}><label className="text-xs font-bold text-slate-600">L. Tanah</label><input required type="number" className="form-input" value={listingFormData.surfaceArea} onChange={e => setListingFormData({...listingFormData, surfaceArea: Number(e.target.value)})} /></div>
+                  {showBuildingArea && (
+                    <div><label className="text-xs font-bold text-slate-600">L. Bangunan</label><input required type="number" className="form-input" value={listingFormData.buildingArea} onChange={e => setListingFormData({...listingFormData, buildingArea: Number(e.target.value)})} /></div>
+                  )}
+                  {showBedrooms && (
                     <>
-                      <div><label className="text-xs font-bold text-slate-500">L. Bangunan</label><input required type="number" className={INPUT_CLASS} value={listingFormData.buildingArea} onChange={e => setListingFormData({...listingFormData, buildingArea: Number(e.target.value)})} /></div>
-                      <div><label className="text-xs font-bold text-slate-500">K. Tidur</label><input required type="number" className={INPUT_CLASS} value={listingFormData.bedrooms} onChange={e => setListingFormData({...listingFormData, bedrooms: Number(e.target.value)})} /></div>
-                      <div><label className="text-xs font-bold text-slate-500">K. Mandi</label><input required type="number" className={INPUT_CLASS} value={listingFormData.bathrooms} onChange={e => setListingFormData({...listingFormData, bathrooms: Number(e.target.value)})} /></div>
+                      <div><label className="text-xs font-bold text-slate-600">K. Tidur</label><input required type="number" className="form-input" value={listingFormData.bedrooms} onChange={e => setListingFormData({...listingFormData, bedrooms: Number(e.target.value)})} /></div>
+                      <div><label className="text-xs font-bold text-slate-600">K. Mandi</label><input required type="number" className="form-input" value={listingFormData.bathrooms} onChange={e => setListingFormData({...listingFormData, bathrooms: Number(e.target.value)})} /></div>
                     </>
                   )}
                </div>
 
                 {/* Image Upload */}
                <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Foto Properti</label>
+                   <label className="text-xs font-bold text-slate-600 mb-1 block">Foto Properti</label>
                    <div className="flex gap-2">
                        {listingFormData.imageUrl && <img src={listingFormData.imageUrl} className="h-10 w-10 object-cover rounded" />}
-                       <input type="file" accept="image/*" onChange={handleListingImageUpload} disabled={isUploading} className="text-sm" />
+                       <input type="file" accept="image/*" onChange={handleListingImageUpload} disabled={isUploading} className="text-sm text-slate-900" />
                    </div>
                </div>
 
-               <div><label className="text-xs font-bold text-slate-500">Deskripsi</label><textarea required rows={3} className={INPUT_CLASS} value={listingFormData.description} onChange={e => setListingFormData({...listingFormData, description: e.target.value})} /></div>
+               <div><label className="text-xs font-bold text-slate-600">Deskripsi</label><textarea required rows={3} className="form-input" value={listingFormData.description} onChange={e => setListingFormData({...listingFormData, description: e.target.value})} /></div>
                <div className="flex justify-end gap-2 mt-4">
-                  <button type="button" onClick={() => setIsCreateForUserModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold">Batal</button>
-                  <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Posting</button>
+                  <button type="button" onClick={() => setIsCreateForUserModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200">Batal</button>
+                  <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">Posting</button>
                </div>
             </form>
           </div>
@@ -822,23 +821,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       {/* Other modals omitted for brevity */}
       {isEditUserModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
               <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Data User</h3>
               <form onSubmit={handleSaveUser} className="space-y-4">
-                 <div><label className="text-xs font-bold text-slate-500">Username</label><input required className={INPUT_CLASS} value={userFormData.username} onChange={e => setUserFormData({...userFormData, username: e.target.value})} /></div>
-                 <div><label className="text-xs font-bold text-slate-500">Email</label><input required type="email" className={INPUT_CLASS} value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} /></div>
-                 <div><label className="text-xs font-bold text-slate-500">WhatsApp</label><input className={INPUT_CLASS} value={userFormData.phoneNumber} onChange={e => setUserFormData({...userFormData, phoneNumber: e.target.value})} /></div>
+                 <div><label className="text-xs font-bold text-slate-600">Username</label><input required className="form-input" value={userFormData.username} onChange={e => setUserFormData({...userFormData, username: e.target.value})} /></div>
+                 <div><label className="text-xs font-bold text-slate-600">Email</label><input required type="email" className="form-input" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} /></div>
+                 <div><label className="text-xs font-bold text-slate-600">WhatsApp</label><input className="form-input" value={userFormData.phoneNumber} onChange={e => setUserFormData({...userFormData, phoneNumber: e.target.value})} /></div>
                  <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-1">Foto Profil</label>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Foto Profil</label>
                     <div className="flex items-center gap-2">
-                         {userFormData.photoUrl && <img src={userFormData.photoUrl} className="w-10 h-10 rounded-full border" />}
-                         <input type="file" ref={fileInputRef} onChange={handleUserPhotoUpload} className="text-sm" disabled={isUploading} />
+                         {userFormData.photoUrl && <img src={userFormData.photoUrl} className="w-10 h-10 rounded-full border border-slate-300" />}
+                         <input type="file" ref={fileInputRef} onChange={handleUserPhotoUpload} className="text-sm text-slate-900" disabled={isUploading} />
                     </div>
-                    {isUploading && <span className="text-xs text-blue-600">Mengupload...</span>}
+                    {isUploading && <span className="text-xs text-blue-700">Mengupload...</span>}
                  </div>
                  <div className="flex justify-end gap-2 mt-4">
-                    <button type="button" onClick={() => setIsEditUserModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold">Batal</button>
-                    <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Simpan</button>
+                    <button type="button" onClick={() => setIsEditUserModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200">Batal</button>
+                    <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">Simpan</button>
                  </div>
               </form>
            </div>
@@ -847,17 +846,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {creditModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl border border-slate-200">
               <h3 className="text-lg font-bold text-slate-900 mb-2">Kelola Saldo</h3>
-              <p className="text-sm text-slate-500 mb-4">User: <strong>{creditModal.username}</strong><br/>Saldo Saat Ini: Rp {creditModal.currentCredits.toLocaleString()}</p>
-              <div className="flex gap-2 mb-4 bg-slate-100 p-1 rounded-lg">
-                 <button onClick={() => setCreditAction('ADD')} className={`flex-1 py-1 rounded text-sm font-bold ${creditAction === 'ADD' ? 'bg-white shadow text-green-700' : 'text-slate-500'}`}>Tambah (+)</button>
-                 <button onClick={() => setCreditAction('SUBTRACT')} className={`flex-1 py-1 rounded text-sm font-bold ${creditAction === 'SUBTRACT' ? 'bg-white shadow text-red-700' : 'text-slate-500'}`}>Kurangi (-)</button>
+              <p className="text-sm text-slate-600 mb-4">User: <strong>{creditModal.username}</strong><br/>Saldo Saat Ini: Rp {creditModal.currentCredits.toLocaleString()}</p>
+              <div className="flex gap-2 mb-4 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                 <button onClick={() => setCreditAction('ADD')} className={`flex-1 py-1 rounded text-sm font-bold ${creditAction === 'ADD' ? 'bg-white shadow text-emerald-700' : 'text-slate-600 hover:text-slate-900'}`}>Tambah (+)</button>
+                 <button onClick={() => setCreditAction('SUBTRACT')} className={`flex-1 py-1 rounded text-sm font-bold ${creditAction === 'SUBTRACT' ? 'bg-white shadow text-red-600' : 'text-slate-600 hover:text-slate-900'}`}>Kurangi (-)</button>
               </div>
-              <input type="number" placeholder="Nominal (Rp)" className={INPUT_CLASS} value={creditAmount} onChange={e => setCreditAmount(e.target.value)} />
+              <input type="number" placeholder="Nominal (Rp)" className="form-input" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} />
               <div className="flex justify-end gap-2 mt-4">
-                 <button onClick={() => setCreditModal({...creditModal, isOpen: false})} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold">Batal</button>
-                 <button onClick={submitCreditChange} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Simpan</button>
+                 <button onClick={() => setCreditModal({...creditModal, isOpen: false})} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200">Batal</button>
+                 <button onClick={submitCreditChange} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">Simpan</button>
               </div>
            </div>
         </div>
@@ -865,34 +864,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {viewingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-           <div className="bg-white rounded-xl w-full max-w-3xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-              <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                 <h3 className="font-bold text-lg">Review Verifikasi: {viewingUser.username}</h3>
-                 <button onClick={() => setViewingUser(null)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+           <div className="bg-white rounded-xl w-full max-w-3xl h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                 <h3 className="font-bold text-lg text-slate-900">Review Verifikasi: {viewingUser.username}</h3>
+                 <button onClick={() => setViewingUser(null)} className="text-slate-600 hover:text-slate-900 font-bold text-xl">&times;</button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                  <div>
-                    <h4 className="font-bold text-slate-500 text-sm mb-2 uppercase">Data User</h4>
-                    <p>Email: {viewingUser.email}</p>
-                    <p>Phone: {viewingUser.phoneNumber}</p>
-                    <p>Status Saat Ini: <span className="font-bold">{viewingUser.verificationStatus}</span></p>
+                    <h4 className="font-bold text-slate-600 text-sm mb-2 uppercase">Data User</h4>
+                    <p className="text-slate-900">Email: {viewingUser.email}</p>
+                    <p className="text-slate-900">Phone: {viewingUser.phoneNumber}</p>
+                    <p className="text-slate-900">Status Saat Ini: <span className="font-bold">{viewingUser.verificationStatus}</span></p>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                        <h4 className="font-bold text-slate-900 mb-2">Foto KTP</h4>
-                       <div className="border rounded-lg p-2 bg-slate-100 min-h-[200px] flex items-center justify-center">
-                          {viewingUser.ktpUrl ? <img src={viewingUser.ktpUrl} alt="KTP" className="max-w-full max-h-64 object-contain" /> : <span className="text-slate-400">Tidak ada foto</span>}
+                       <div className="border border-slate-300 rounded-lg p-2 bg-slate-50 min-h-[200px] flex items-center justify-center">
+                          {viewingUser.ktpUrl ? <img src={viewingUser.ktpUrl} alt="KTP" className="max-w-full max-h-64 object-contain" /> : <span className="text-slate-500">Tidak ada foto</span>}
                        </div>
                     </div>
                     <div>
                        <h4 className="font-bold text-slate-900 mb-2">Foto Selfie</h4>
-                       <div className="border rounded-lg p-2 bg-slate-100 min-h-[200px] flex items-center justify-center">
-                          {viewingUser.selfieUrl ? <img src={viewingUser.selfieUrl} alt="Selfie" className="max-w-full max-h-64 object-contain" /> : <span className="text-slate-400">Tidak ada foto</span>}
+                       <div className="border border-slate-300 rounded-lg p-2 bg-slate-50 min-h-[200px] flex items-center justify-center">
+                          {viewingUser.selfieUrl ? <img src={viewingUser.selfieUrl} alt="Selfie" className="max-w-full max-h-64 object-contain" /> : <span className="text-slate-500">Tidak ada foto</span>}
                        </div>
                     </div>
                  </div>
               </div>
-              <div className="p-4 border-t bg-slate-50 flex justify-end gap-3">
+              <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
                  {viewingUser.verificationStatus !== 'VERIFIED' && (
                     <button onClick={() => handleVerifyAction(viewingUser.id, VerificationStatus.VERIFIED)} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow-md">Approve (Setujui)</button>
                  )}
@@ -900,7 +899,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                     <button onClick={() => handleVerifyAction(viewingUser.id, VerificationStatus.REJECTED)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold shadow-md">Reject (Tolak)</button>
                  )}
                  {viewingUser.verificationStatus === 'VERIFIED' && (
-                    <button onClick={() => handleVerifyAction(viewingUser.id, VerificationStatus.UNVERIFIED)} className="bg-slate-200 text-slate-700 px-6 py-2 rounded-lg font-bold hover:bg-slate-300">Cabut Verifikasi</button>
+                    <button onClick={() => handleVerifyAction(viewingUser.id, VerificationStatus.UNVERIFIED)} className="bg-slate-300 text-slate-700 px-6 py-2 rounded-lg font-bold hover:bg-slate-400">Cabut Verifikasi</button>
                  )}
               </div>
            </div>
@@ -909,30 +908,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {isBlogModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-           <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+           <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh] border border-slate-200">
              <h3 className="text-lg font-bold text-slate-900 mb-4">{editingPost ? 'Edit Artikel' : 'Tulis Artikel Baru'}</h3>
              <form onSubmit={handleSaveBlog} className="space-y-4">
-                <div><label className="text-xs font-bold text-slate-500">Judul Artikel</label><input required className={INPUT_CLASS} value={blogFormData.title} onChange={e => setBlogFormData({...blogFormData, title: e.target.value})} /></div>
+                <div><label className="text-xs font-bold text-slate-600">Judul Artikel</label><input required className="form-input" value={blogFormData.title} onChange={e => setBlogFormData({...blogFormData, title: e.target.value})} /></div>
                 <div className="grid grid-cols-2 gap-4">
-                   <div><label className="text-xs font-bold text-slate-500">Kategori</label><input required className={INPUT_CLASS} value={blogFormData.category} onChange={e => setBlogFormData({...blogFormData, category: e.target.value})} placeholder="Tips, Investasi, dll" /></div>
-                   <div><label className="text-xs font-bold text-slate-500">Penulis</label><input className={INPUT_CLASS} value={blogFormData.author} onChange={e => setBlogFormData({...blogFormData, author: e.target.value})} /></div>
+                   <div><label className="text-xs font-bold text-slate-600">Kategori</label><input required className="form-input" value={blogFormData.category} onChange={e => setBlogFormData({...blogFormData, category: e.target.value})} placeholder="Tips, Investasi, dll" /></div>
+                   <div><label className="text-xs font-bold text-slate-600">Penulis</label><input className="form-input" value={blogFormData.author} onChange={e => setBlogFormData({...blogFormData, author: e.target.value})} /></div>
                 </div>
                 
                 {/* Blog Image Upload */}
                 <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Gambar Utama</label>
+                   <label className="text-xs font-bold text-slate-600 mb-1 block">Gambar Utama</label>
                    <div className="flex gap-2">
                        {blogFormData.imageUrl && <img src={blogFormData.imageUrl} className="h-10 w-16 object-cover rounded" />}
-                       <input type="file" accept="image/*" onChange={handleBlogImageUpload} disabled={isUploading} className="text-sm" />
+                       <input type="file" accept="image/*" onChange={handleBlogImageUpload} disabled={isUploading} className="text-sm text-slate-900" />
                    </div>
                 </div>
 
-                <div><label className="text-xs font-bold text-slate-500">Ringkasan (Excerpt)</label><textarea required rows={2} className={INPUT_CLASS} value={blogFormData.excerpt} onChange={e => setBlogFormData({...blogFormData, excerpt: e.target.value})} /></div>
-                <div><label className="text-xs font-bold text-slate-500">Isi Konten</label><textarea required rows={10} className={INPUT_CLASS} value={blogFormData.content} onChange={e => setBlogFormData({...blogFormData, content: e.target.value})} placeholder="Tulis artikel di sini..." /></div>
+                <div><label className="text-xs font-bold text-slate-600">Ringkasan (Excerpt)</label><textarea required rows={2} className="form-input" value={blogFormData.excerpt} onChange={e => setBlogFormData({...blogFormData, excerpt: e.target.value})} /></div>
+                <div><label className="text-xs font-bold text-slate-600">Isi Konten</label><textarea required rows={10} className="form-input" value={blogFormData.content} onChange={e => setBlogFormData({...blogFormData, content: e.target.value})} placeholder="Tulis artikel di sini..." /></div>
                 
                 <div className="flex gap-3 justify-end mt-4">
-                   <button type="button" onClick={() => setIsBlogModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold">Batal</button>
-                   <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Simpan Artikel</button>
+                   <button type="button" onClick={() => setIsBlogModalOpen(false)} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200">Batal</button>
+                   <button type="submit" disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">Simpan Artikel</button>
                 </div>
              </form>
            </div>
@@ -941,8 +940,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-             <p className="mb-6 text-lg text-slate-800">{confirmModal.message}</p>
+           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm border border-slate-200">
+             <p className="mb-6 text-lg text-slate-900">{confirmModal.message}</p>
              <div className="flex justify-end gap-2">
                 <button onClick={closeConfirm} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium">Batal</button>
                 <button onClick={confirmModal.onConfirm} className={`text-white px-4 py-2 rounded-lg font-bold ${confirmModal.isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>Ya, Lanjutkan</button>

@@ -1,11 +1,15 @@
 
+
 export enum Category {
   RUMAH = 'Rumah Tapak',
   APARTEMEN = 'Apartemen',
   RUKO = 'Ruko & Rukan',
   KANTOR = 'Kantor & Office',
   TANAH = 'Tanah Kavling',
-  SPACE = 'Lapak / Space Usaha'
+  SPACE = 'Lapak / Space Usaha',
+  GUDANG = 'Gudang & Industri',
+  HOTEL = 'Hotel & Villa',
+  GEDUNG = 'Gedung & Komersial Lain'
 }
 
 export enum ListingType {
@@ -15,7 +19,8 @@ export enum ListingType {
 
 export enum ListingStatus {
   ACTIVE = 'ACTIVE',
-  SOLD = 'SOLD'
+  SOLD = 'SOLD',
+  DRAFT = 'DRAFT'
 }
 
 export enum VerificationStatus {
@@ -24,49 +29,6 @@ export enum VerificationStatus {
   VERIFIED = 'VERIFIED',
   REJECTED = 'REJECTED'
 }
-
-// Grouped Locations for Better UX (Like Lamudi/Rumah123)
-export const LOCATION_GROUPS = [
-  {
-    region: "Jabodetabek (Populer)",
-    cities: [
-      'Jakarta Selatan', 'Jakarta Pusat', 'Jakarta Barat', 'Jakarta Utara', 'Jakarta Timur',
-      'Tangerang Selatan', 'BSD City', 'Gading Serpong', 'Bintaro',
-      'Tangerang Kota', 'Depok', 'Bekasi', 'Cikarang', 'Bogor', 'Sentul', 'Cibubur'
-    ]
-  },
-  {
-    region: "Jawa Barat",
-    cities: ['Bandung', 'Cimahi', 'Cirebon', 'Sukabumi', 'Karawang']
-  },
-  {
-    region: "Jawa Tengah & DIY",
-    cities: ['Yogyakarta', 'Sleman', 'Semarang', 'Solo (Surakarta)', 'Magelang']
-  },
-  {
-    region: "Jawa Timur",
-    cities: ['Surabaya', 'Sidoarjo', 'Malang', 'Batu', 'Gresik']
-  },
-  {
-    region: "Bali & Nusa Tenggara",
-    cities: ['Bali - Denpasar', 'Bali - Badung (Canggu/Seminyak)', 'Bali - Ubud', 'Bali - Jimbaran', 'Lombok']
-  },
-  {
-    region: "Sumatera",
-    cities: ['Medan', 'Palembang', 'Batam', 'Pekanbaru', 'Lampung', 'Padang']
-  },
-  {
-    region: "Kalimantan & Sulawesi",
-    cities: ['Makassar', 'Manado', 'Balikpapan', 'Samarinda', 'Pontianak', 'Banjarmasin']
-  },
-  {
-    region: "Lainnya",
-    cities: ['Other']
-  }
-];
-
-// Flattened array helper for backward compatibility / validation
-export const POPULAR_LOCATIONS = LOCATION_GROUPS.flatMap(group => group.cities);
 
 export interface CityInsight {
   location: string;
